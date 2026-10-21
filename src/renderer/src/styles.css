@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* The settings window has its own stylesheet; keep its classes out of the island's. */
+@source not './settings';
 
 @theme {
   --font-sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
@@ -62,9 +64,10 @@ body,
 .notch[data-hidden='true'] {
   transform: translateY(calc(-100% - 2px));
 }
-/* Pointer over the closed pill: fade it so what's under it can be seen (the click goes through). */
+/* Pointer over the closed pill: fade it so what's under it can be seen (the click goes through).
+   --ghost is set from React (settings.island.ghostOpacity). */
 .notch[data-ghost='true'] {
-  opacity: 0.15;
+  opacity: var(--ghost, 0.15);
 }
 
 .notch-body {

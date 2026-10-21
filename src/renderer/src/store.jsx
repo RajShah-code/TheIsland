@@ -1,5 +1,6 @@
 // State pushed from the main process. Widgets read their slice with useIsland().
 import { createContext, useContext, useEffect, useState } from 'react'
+import { DEFAULT_SETTINGS } from '../../shared/settings-model.mjs'
 
 const IslandContext = createContext(null)
 
@@ -7,7 +8,8 @@ const EMPTY = {
   claude: { sessions: [], approvals: [] },
   media: { available: false, active: false },
   calendar: { configured: false, events: [] },
-  settings: { approvalsEnabled: true },
+  // Replaced by the main process's validated settings (src/shared/settings-model.mjs) on load.
+  settings: DEFAULT_SETTINGS,
   fullscreen: false,
   // Stats are undefined until first sampled, null when not available (see src/main/helper.js).
   system: {

@@ -1,8 +1,8 @@
-// Tray menu: the only "settings" in v1. Hide switch, approvals switch, hook install/remove (with the
-// diff shown first), calendar URL, quit.
+// Tray menu: Settings window, hide switch, approvals switch, hook install/remove (with the diff shown
+// first), calendar URL, quit. Everything else lives in the settings window (settings-window.js).
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
-import { app, clipboard, dialog, Menu, nativeImage, Tray } from 'electron'
+import { app, dialog, Menu, nativeImage, Tray } from 'electron'
 import {
   applyPlan,
   installRelayFile,
@@ -11,7 +11,8 @@ import {
   planUninstall,
   relayInstallPath
 } from '../shared/hooks-installer.mjs'
-import { getConfig, setConfig, setSecret } from './config'
+import { hasCalendarUrl, removeCalendarUrl, setCalendarFromClipboard } from './calendar-url'
+import { getSettings, updateSettings } from './config'
 import { log } from './log'
 
 // A small white pill drawn in code, so there is no icon file to ship.
@@ -48,7 +49,14 @@ function shortDiff(diff) {
   return lines.filter((_, i) => keep.has(i)).join('\n')
 }
 
-export function createTray({ onConfigChanged, onCalendarChanged, isHidden, onToggleHidden, hideShortcut }) {
+export function createTray({
+  onConfigChanged,
+  onCalendarChanged,
+  onOpenSettings,
+  isHidden,
+  onToggleHidden,
+  hideShortcut
+}) {
   const tray = new Tray(trayIcon())
   tray.setToolTip('TheIsland')
 
@@ -107,41 +115,20 @@ export function createTray({ onConfigChanged, onCalendarChanged, isHidden, onTog
     refresh()
   }
 
-  async function setCalendarFromClipboard() {
-    // readText() returns a Promise in this Electron version.
-    const url = String((await clipboard.readText()) || '').trim()
-    let ok = false
-    try {
-      const u = new URL(url)
-      ok = u.protocol === 'https:' && /\.ics$/i.test(u.pathname)
-    } catch {}
-    if (!ok) {
-      dialog.showErrorBox(
-        'TheIsland',
-        'Copy the "Secret address in iCal format" from Google Calendar settings first. ' +
-          'It starts with https:// and ends with .ics.'
-      )
-      return
-    }
-    try {
-      setSecret('calendarUrl', url)
-    } catch (e) {
-      dialog.showErrorBox('TheIsland', 'Calendar not saved: ' + e.message)
-      return
-    }
-    clipboard.clear()
-    log('calendar url set')
+  async function setCalendar() {
+    const r = await setCalendarFromClipboard()
+    if (!r.ok) return dialog.showErrorBox('TheIsland', r.error)
     onCalendarChanged()
-    refresh()
   }
 
   function refresh() {
-    const cfg = getConfig()
+    const cfg = getSettings()
     const installed = isInstalled()
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: 'TheIsland', enabled: false },
         { type: 'separator' },
+        { label: 'Settings...', click: onOpenSettings },
         {
           label: 'Hide the island',
           type: 'checkbox',
@@ -156,23 +143,21 @@ export function createTray({ onConfigChanged, onCalendarChanged, isHidden, onTog
           type: 'checkbox',
           checked: cfg.approvalsEnabled,
           click: (item) => {
-            setConfig({ approvalsEnabled: item.checked })
+            updateSettings({ approvalsEnabled: item.checked })
             onConfigChanged()
-            refresh()
           }
         },
         installed
           ? { label: 'Remove Claude Code hooks...', click: removeHooks }
           : { label: 'Install Claude Code hooks...', click: installHooks },
         { type: 'separator' },
-        { label: 'Set calendar from copied iCal address', click: setCalendarFromClipboard },
+        { label: 'Set calendar from copied iCal address', click: setCalendar },
         {
           label: 'Remove calendar',
-          enabled: !!cfg.calendarUrl,
+          enabled: hasCalendarUrl(),
           click: () => {
-            setSecret('calendarUrl', null)
+            removeCalendarUrl()
             onCalendarChanged()
-            refresh()
           }
         },
         { type: 'separator' },

@@ -4,25 +4,11 @@
 // listens to its own events, and the only timers are the slider throttle and the sleep confirm, both
 // started by a click or drag.
 import { useEffect, useRef, useState } from 'react'
+import { SYSTEM_ITEMS, sortByOrder } from '../../../shared/settings-model.mjs'
 
-// Declared for the future settings window, which will hide and reorder these. The tab is rendered
-// from this list. kind: 'meter' (left column) or 'control' (right column); layout tells a control
-// whether it takes a full row ('row') or sits with its neighbours as a pill ('pill').
-export const SYSTEM_ITEMS = [
-  { id: 'cpu', name: 'CPU', kind: 'meter' },
-  { id: 'ram', name: 'Memory', kind: 'meter' },
-  { id: 'gpu', name: 'GPU', kind: 'meter' },
-  { id: 'disk', name: 'Disk', kind: 'meter' },
-  { id: 'network', name: 'Network', kind: 'meter' },
-  { id: 'battery', name: 'Battery', kind: 'meter' },
-  { id: 'volume', name: 'Volume', kind: 'control', layout: 'row' },
-  { id: 'brightness', name: 'Brightness', kind: 'control', layout: 'row' },
-  { id: 'wifi', name: 'Wi-Fi', kind: 'control', layout: 'pill' },
-  { id: 'bluetooth', name: 'Bluetooth', kind: 'control', layout: 'pill' },
-  { id: 'keepAwake', name: 'Keep awake', kind: 'control', layout: 'pill' },
-  { id: 'lock', name: 'Lock', kind: 'control', layout: 'pill' },
-  { id: 'sleep', name: 'Sleep', kind: 'control', layout: 'pill' }
-]
+// The tab is rendered from SYSTEM_ITEMS (declared in the shared settings model, so the main process
+// can validate settings.system and the settings window can list them), in the user's order.
+export { SYSTEM_ITEMS }
 
 const METERS_W = 250
 const THROTTLE_MS = 80
@@ -53,12 +39,13 @@ function rate(v) {
 
 const gb = (bytes) => (bytes / 1024 ** 3).toFixed(1)
 
-function Bar({ value }) {
+// Load bars warn when high; pass color to override (the battery is good when high).
+function Bar({ value, color }) {
   const ok = typeof value === 'number'
   return (
     <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
       <div
-        className={`h-full rounded-full transition-[width] duration-300 ${value > 85 ? 'bg-amber-400' : 'bg-white/70'}`}
+        className={`h-full rounded-full transition-[width] duration-300 ${color || (value > 85 ? 'bg-amber-400' : 'bg-white/70')}`}
         style={{ width: ok ? Math.max(0, Math.min(100, value)) + '%' : 0 }}
       />
     </div>
@@ -139,7 +126,7 @@ function BatteryMeter({ active }) {
   const note = b ? (b.charging ? (level >= 100 ? 'plugged in' : 'charging') : '') : ''
   return (
     <Row label="Battery">
-      <Bar value={level} />
+      <Bar value={level} color={level >= 90 ? 'bg-emerald-400' : level <= 20 ? 'bg-rose-500' : 'bg-white/70'} />
       <Value wide>
         {missing(level) ?? level + '%'}
         {note && <span className="text-white/40"> {note}</span>}
@@ -404,7 +391,7 @@ function groupControls(items) {
 
 export function SystemPanel({ system, settings, active }) {
   const hidden = new Set(settings?.system?.hidden || [])
-  const shown = SYSTEM_ITEMS.filter((it) => !hidden.has(it.id))
+  const shown = sortByOrder(SYSTEM_ITEMS, settings?.system?.order).filter((it) => !hidden.has(it.id))
   const meters = shown.filter((it) => it.kind === 'meter' && METERS[it.id])
   const controls = groupControls(shown.filter((it) => it.kind === 'control' && CONTROLS[it.id]))
   const props = { s: system, active }

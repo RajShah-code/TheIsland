@@ -1,13 +1,16 @@
 // User settings in %APPDATA%\TheIsland\config.json. Secrets (the calendar URL) are encrypted
 // with Windows DPAPI through Electron's safeStorage, so the file alone doesn't reveal them.
+// The shape of the user-facing settings lives in src/shared/settings-model.mjs; changes from the
+// settings window go through updateSettings(), which validates, clamps and drops unknown keys.
 import fs from 'node:fs'
 import path from 'node:path'
 import { app, safeStorage } from 'electron'
+import { applySettingsPatch, DEFAULT_SETTINGS, normalizeSettings } from '../shared/settings-model.mjs'
 
 const DEFAULTS = {
-  approvalsEnabled: true,
-  // How long the island waits for Allow/Deny before handing the prompt back to the terminal.
-  approvalTimeoutSec: 120,
+  // approvalTimeoutSec: how long the island waits for Allow/Deny before handing the prompt back to
+  // the terminal. The rest is described in settings-model.mjs.
+  ...DEFAULT_SETTINGS,
   calendarUrl: null
 }
 
@@ -32,6 +35,17 @@ export function setConfig(patch) {
   fs.mkdirSync(path.dirname(file()), { recursive: true })
   fs.writeFileSync(file(), JSON.stringify(cache, null, 2))
   return cache
+}
+
+// The validated settings, without secrets: safe to send to any renderer.
+export function getSettings() {
+  return normalizeSettings(getConfig())
+}
+
+export function updateSettings(patch) {
+  const next = applySettingsPatch(getSettings(), patch)
+  setConfig(next)
+  return next
 }
 
 export function setSecret(key, value) {

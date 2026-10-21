@@ -1,5 +1,6 @@
 // Claude Code status and approvals (core of the island, not a widget).
 import { useEffect, useState } from 'react'
+import { useIsland } from '../store'
 import { Buddy, buddyReact } from './Buddy'
 
 // Blinks the "working" dot once a second with a timer instead of a CSS animation: a running CSS
@@ -28,6 +29,15 @@ export function Dot({ state }) {
   return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${s.dot} ${lit ? '' : 'opacity-35'}`} />
 }
 
+// The buddy, or the plain coloured dot when the user turned the buddy off (settings.claude.buddy).
+export function useBuddyOn() {
+  return useIsland().settings?.claude?.buddy !== false
+}
+
+export function Mascot({ mood, ...props }) {
+  return useBuddyOn() ? <Buddy mood={mood} {...props} /> : <Dot state={mood} />
+}
+
 const PRIORITY = { waiting: 0, working: 1, done: 2, idle: 3, stale: 4 }
 
 export function mostRelevant(sessions) {
@@ -41,7 +51,7 @@ export function ClaudeCompact({ sessions, active }) {
   const more = sessions.length - 1
   return (
     <span className="flex min-w-0 items-center gap-1.5 text-[12px]">
-      <Buddy mood={s.state} tool={s.tool} beat={s.updatedAt} cell={1.5} active={active} />
+      <Mascot mood={s.state} tool={s.tool} beat={s.updatedAt} cell={1.5} active={active} />
       <span className="max-w-[110px] truncate text-white/85">{s.project}</span>
       {s.state === 'working' && s.tool && <span className="max-w-[80px] truncate text-white/45">{s.tool}</span>}
       {s.state !== 'working' && <span className="text-white/45">{STATE[s.state]?.label}</span>}
@@ -51,14 +61,15 @@ export function ClaudeCompact({ sessions, active }) {
 }
 
 export function ClaudePanel({ sessions, active }) {
+  const buddy = useBuddyOn()
   if (sessions.length === 0) {
     return <p className="text-xs text-white/45">No Claude Code sessions right now</p>
   }
   const top = mostRelevant(sessions)
   return (
     <div className="flex items-start gap-3">
-      <Buddy mood={top.state} tool={top.tool} beat={top.updatedAt} cell={2.5} active={active} follow />
-      <div className="min-w-0 flex-1 space-y-1 pt-2">
+      {buddy && <Buddy mood={top.state} tool={top.tool} beat={top.updatedAt} cell={2.5} active={active} follow />}
+      <div className={`min-w-0 flex-1 space-y-1 ${buddy ? 'pt-2' : ''}`}>
         {sessions.map((s) => (
           <div key={s.id} className={`flex items-center gap-2 text-xs ${s.state === 'stale' ? 'opacity-50' : ''}`}>
             <Dot state={s.state} />
@@ -140,7 +151,7 @@ export function ApprovalCard({ approval, queued, active }) {
   return (
     <div className="space-y-2 rounded-2xl bg-white/[0.06] p-3 ring-1 ring-rose-500/40">
       <div className="flex items-center gap-2 text-xs">
-        <Buddy mood="waiting" cell={2} active={active} />
+        <Mascot mood="waiting" cell={2} active={active} />
         <span className="font-semibold">{approval.project}</span>
         <span className="text-white/50">wants to use</span>
         <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px]">{approval.tool}</span>

@@ -12,21 +12,32 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
 - Never use the em dash character in UI text or chat. No AI attribution in commits.
 - Ask the user before installing big toolchains (for example the .NET SDK), creating a GitHub remote, or
   touching the real `%USERPROFILE%\.claude\settings.json` (show the diff first: `npm run hooks:diff`).
-- The settings/customization UI is planned but not built yet. Widgets already declare `options` for it.
+- Settings live in the settings window (tray "Settings..." or the gear in the open island). Widget `options`
+  are declared but not shown there yet.
 
 ## Layout
 
 - `src/main/` (Electron main process)
-  - `index.js` wires everything; IPC handlers only accept messages from the island window.
+  - `index.js` wires everything; `island:*` IPC handlers only accept the island window, `settings:*` only the
+    settings window. Every settings change goes through `settingsChanged()`: saves, pushes `island:settings`
+    and `settings:changed`, refreshes the tray.
+  - `settings-window.js` the settings window: framed, created when opened, destroyed when closed, one at a time.
   - `window.js` frameless transparent always-on-top window, `focusable: false`, click-through outside the pill.
   - `relay-server.js` 127.0.0.1 HTTP, random port, token in `%APPDATA%\TheIsland\relay.json`, rejects
     requests with an Origin header. Only `POST /event`. Approvals are answered over IPC, never HTTP.
   - `claude.js` sessions and pending approvals from hook events (memory only).
   - `helper.js` runs `resources/island-helper.exe` (music events + fullscreen on/off) and reads its JSON lines.
   - `calendar.js` fetches the ICS URL every 15 min (and on resume), parses with `ical.js`.
-  - `config.js` settings; the calendar URL is encrypted with `safeStorage` (DPAPI).
-  - `tray.js` the only settings in v1: approvals switch, hook install/remove, calendar URL, quit.
+  - `config.js` settings; `getSettings()` / `updateSettings(patch)` validate through the shared model. The
+    calendar URL is encrypted with `safeStorage` (DPAPI) and never sent to a renderer.
+  - `calendar-url.js` set the calendar from the clipboard / remove it (used by the tray and settings window).
+  - `tray.js` Settings..., hide switch, approvals switch, hook install/remove, calendar URL, quit.
 - `src/shared/hooks-installer.mjs` safe installer used by both the tray and `scripts/hooks.mjs`.
+- `src/shared/settings-model.mjs` the settings model: defaults, `normalizeSettings` (clamps, drops unknown
+  keys), `applySettingsPatch`, `sortByOrder`, `WIDGET_IDS`, `SYSTEM_ITEMS`. Shape: `approvalsEnabled`,
+  `approvalTimeoutSec` (30..285, the hook dies at 300 s), `pill { leftFallback, rightFallback }`,
+  `widgets { order, hidden }`, `system { order, hidden }`, `claude { buddy }`, `island { ghostOpacity }`.
+  Start with Windows is the real login item (`app.getLoginItemSettings`), not stored.
 - `hook/theisland-relay.cjs` the script Claude Code runs. Copied to `%APPDATA%\TheIsland` at app start so
   the hook path doesn't depend on this folder. No dependencies, exits 0 silently on any problem.
 - `helper/IslandHelper.cs` tiny C# program: Windows media sessions (events) and fullscreen detection (one
@@ -34,7 +45,11 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
   with the `csc.exe` that ships with Windows (.NET Framework 4); the exe is gitignored.
 - `src/renderer/src/` React UI. `App.jsx` (the notch: closed, open with Home / Claude Code tabs, fullscreen
   hide and top-edge peek), `components/Claude.jsx`, `widgets/<name>/index.jsx` + registration in
-  `widgets/index.js`. Each widget is one column of the Home tab (`width`, optional `visible(state)`).
+  `widgets/index.js`. Each widget is one column of the Home tab (`width`, optional `visible(state)`);
+  `orderedWidgets(settings)` applies the user's order and hidden list.
+- `src/renderer/settings.html` + `src/renderer/src/settings/` the settings page, a second renderer entry with
+  its own preload (`src/preload/settings.js`, `window.settingsApi`) and stylesheet, so none of it loads in
+  the island.
 - The notch shape is sized in px from React and animated with CSS transitions in `styles.css` (auto sizes
   can't animate). Transitions only run while the shape changes, so it costs nothing at rest.
 

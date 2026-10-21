@@ -2,6 +2,7 @@ import { useMinute } from '../../store'
 
 const time = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
 const date = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+const shortDate = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
 // 12-hour clock, e.g. "3:07" with "PM" set smaller.
 function Panel() {
@@ -28,6 +29,12 @@ function Panel() {
 export function CompactTime() {
   const now = useMinute()
   return <span className="text-white/85 tabular-nums">{time.format(now)}</span>
+}
+
+// The same for the date, e.g. "Tue, Oct 21".
+export function CompactDate() {
+  const now = useMinute()
+  return <span className="text-white/85">{shortDate.format(now)}</span>
 }
 
 export default {

@@ -19,5 +19,6 @@ contextBridge.exposeInMainWorld('island', {
   media: (cmd) => ipcRenderer.send('island:media', cmd),
   system: (cmd, value) => ipcRenderer.send('island:system', String(cmd), value),
   setSystemWatch: (on) => ipcRenderer.send('island:system-watch', !!on),
-  setInteractive: (on) => ipcRenderer.send('island:interactive', !!on)
+  setInteractive: (on) => ipcRenderer.send('island:interactive', !!on),
+  openSettings: () => ipcRenderer.send('island:open-settings')
 })
