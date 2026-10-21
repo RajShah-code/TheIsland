@@ -63,7 +63,8 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
 
 ## Claude Code hooks
 
-Sessions end on SessionEnd, when the Claude Code process (the relay's parent pid, checked once a minute while
+Sessions end on SessionEnd, when a finished session's Claude desktop app has no visible window left (closed to the
+tray; the helper's "hosts" command), when the Claude Code process (the relay's parent pid, checked every 10 s while
 sessions exist) is gone, or by staleness: "working" with no events for 10 min shows as "No updates", quiet
 sessions are forgotten after 45 min. See `src/main/claude.js`.
 

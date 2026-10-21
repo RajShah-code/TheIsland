@@ -26,6 +26,8 @@
 //       rest is only re-read once per second while stats are on.
 //     {"type":"outputs","devices":[{"id":"...","name":"Speakers","default":true}]} at startup, on
 //       "outputs", "system refresh" and when the default or the set of output devices changes.
+//     {"type":"hosts","closed":[pid,...]} answering "hosts": the Claude Code session pids whose Claude
+//       desktop app has no visible window (closed to the tray).
 //   stdin  <- commands: "toggle", "next", "prev", "refresh",
 //     "stats on", "stats off", "volume <0-100>", "mute on|off|toggle", "brightness <0-100>",
 //     "wifi on|off", "bluetooth on|off", "lock", "sleep",
@@ -33,7 +35,7 @@
 //     "energysaver on|off" (no public API to set it: only re-sends the state),
 //     "colorfilters toggle|on|off" (Win+Ctrl+C, only when the shortcut is enabled in Settings),
 //     "keys cast|project|captions|keyboard|screenshot|notifications|quick|emoji",
-//     "outputs", "output <device id>",
+//     "outputs", "output <device id>", "hosts <pid> <pid> ...",
 //     "system refresh" (re-sends audio, brightness, radios, quick and outputs).
 // The helper exits when stdin closes, so it never outlives the app.
 //
@@ -405,8 +407,86 @@ class IslandHelper
                     ThreadPool.QueueUserWorkItem(_ => { SetDefaultOutput(id); outputsDebounce.Change(150, Timeout.Infinite); QuickAfter(0); });
                 }
                 return true;
+            case "hosts":
+                EmitClosedHosts(arg);
+                return true;
         }
         return false;
+    }
+
+    // ---- Claude desktop windows ----
+    // "hosts <pid> <pid> ...": Claude Code session processes. For each one started by the Claude desktop
+    // app (its parent is Claude.exe), reports whether that app has no visible window left (closed to the
+    // tray). Sessions started anywhere else (a terminal, an editor) are never reported.
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct PROCESSENTRY32
+    {
+        public uint dwSize, cntUsage, th32ProcessID;
+        public IntPtr th32DefaultHeapID;
+        public uint th32ModuleID, cntThreads, th32ParentProcessID;
+        public int pcPriClassBase;
+        public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szExeFile;
+    }
+    delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint pid);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool Process32FirstW(IntPtr snap, ref PROCESSENTRY32 e);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool Process32NextW(IntPtr snap, ref PROCESSENTRY32 e);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc cb, IntPtr lParam);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hWnd);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr hWnd, uint cmd);
+
+    static void EmitClosedHosts(string arg)
+    {
+        var wanted = new List<uint>();
+        foreach (var part in arg.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            uint p;
+            if (uint.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out p) && p > 0 && wanted.Count < 64) wanted.Add(p);
+        }
+        var closed = new List<uint>();
+        try
+        {
+            // pid -> (parent pid, exe name), one snapshot for all of them.
+            var procs = new Dictionary<uint, KeyValuePair<uint, string>>();
+            IntPtr snap = CreateToolhelp32Snapshot(0x2, 0); // TH32CS_SNAPPROCESS
+            if (snap != IntPtr.Zero && snap != new IntPtr(-1))
+            {
+                try
+                {
+                    var e = new PROCESSENTRY32 { dwSize = (uint)Marshal.SizeOf(typeof(PROCESSENTRY32)) };
+                    for (bool ok = Process32FirstW(snap, ref e); ok; ok = Process32NextW(snap, ref e))
+                        procs[e.th32ProcessID] = new KeyValuePair<uint, string>(e.th32ParentProcessID, e.szExeFile ?? "");
+                }
+                finally { CloseHandle(snap); }
+            }
+            var hosts = new Dictionary<uint, uint>(); // session pid -> desktop app pid
+            foreach (var p in wanted)
+            {
+                KeyValuePair<uint, string> me, parent;
+                if (!procs.TryGetValue(p, out me) || !procs.TryGetValue(me.Key, out parent)) continue;
+                if (string.Equals(parent.Value, "Claude.exe", StringComparison.OrdinalIgnoreCase)) hosts[p] = me.Key;
+            }
+            if (hosts.Count > 0)
+            {
+                // Desktop app processes that own a visible top-level window (not owned by another window).
+                var open = new HashSet<uint>();
+                EnumWindows((h, l) =>
+                {
+                    uint wp;
+                    if (IsWindowVisible(h) && GetWindow(h, 4) == IntPtr.Zero && GetWindowThreadProcessId(h, out wp) != 0) open.Add(wp);
+                    return true;
+                }, IntPtr.Zero);
+                foreach (var kv in hosts) if (!open.Contains(kv.Value)) closed.Add(kv.Key);
+            }
+        }
+        catch { }
+        var sb = new StringBuilder("{\"type\":\"hosts\",\"closed\":[");
+        for (int i = 0; i < closed.Count; i++) sb.Append(i > 0 ? "," : "").Append(closed[i].ToString(CultureInfo.InvariantCulture));
+        Write(sb.Append("]}").ToString());
     }
 
     static bool ParsePercent(string s, out int v)

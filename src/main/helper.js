@@ -1,7 +1,8 @@
 // Runs resources/island-helper.exe (see helper/IslandHelper.cs). It pushes a JSON line when the
 // Windows media session changes, when a fullscreen app starts/stops, and for the System tab (audio,
 // brightness, radios, Quick Settings state and sound outputs on change; GPU/disk/network once a
-// second only while asked with "stats on").
+// second only while asked with "stats on"). It also answers "hosts" (is a Claude Code session's
+// desktop app closed to the tray?) for the session sweep in claude.js.
 // The helper exits when we close its stdin.
 //
 // System tab: CPU and RAM are sampled here (node's os module), but only while the renderer says the
@@ -223,7 +224,29 @@ export function startHelper({ onMedia, onFullscreen, onSystem }) {
       case 'outputs':
         system = { ...system, outputs: parseOutputs(m.devices) }
         return emitSystem()
+      case 'hosts':
+        return answerHosts(new Set(Array.isArray(m.closed) ? m.closed.filter(Number.isInteger) : []))
     }
+  }
+
+  // Which Claude Code session pids belong to a Claude desktop app with no visible window. One question
+  // at a time (the session sweep asks every 10 s); no helper or no answer counts as "none closed".
+  let hostsAsk = null
+  function answerHosts(closed) {
+    if (!hostsAsk) return
+    clearTimeout(hostsAsk.timer)
+    hostsAsk.resolve(closed)
+    hostsAsk = null
+  }
+  function closedHosts(pids) {
+    const list = pids.filter((p) => Number.isInteger(p) && p > 0)
+    if (!child || list.length === 0) return Promise.resolve(new Set())
+    if (hostsAsk) return hostsAsk.promise
+    let resolve
+    const promise = new Promise((r) => (resolve = r))
+    hostsAsk = { promise, resolve, timer: setTimeout(() => answerHosts(new Set()), 3000) }
+    write('hosts ' + list.join(' '))
+    return promise
   }
 
   function sample() {
@@ -339,6 +362,7 @@ export function startHelper({ onMedia, onFullscreen, onSystem }) {
   return {
     get: () => state,
     isFullscreen: () => fullscreen,
+    closedHosts,
     command(cmd) {
       if (child && ['toggle', 'next', 'prev'].includes(cmd)) child.stdin.write(cmd + '\n')
     },

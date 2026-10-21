@@ -56,6 +56,7 @@ export function createTray({
   onOpenSettings,
   isHidden,
   onToggleHidden,
+  onQuit,
   hideShortcut
 }) {
   const tray = new Tray(trayIcon())
@@ -164,7 +165,7 @@ export function createTray({
           }
         },
         { type: 'separator' },
-        { label: 'Quit TheIsland', click: () => app.quit() }
+        { label: 'Quit TheIsland', click: () => (onQuit ? onQuit() : app.quit()) }
       ])
     )
   }

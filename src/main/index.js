@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process'
 import path from 'node:path'
 import { app, globalShortcut, ipcMain, shell } from 'electron'
 import { installRelayFile } from '../shared/hooks-installer.mjs'
@@ -5,6 +6,7 @@ import { createClaudeHub } from './claude'
 import { startCalendar } from './calendar'
 import { hasCalendarUrl, removeCalendarUrl, setCalendarFromClipboard } from './calendar-url'
 import { getSecret, getSettings, updateSettings } from './config'
+import { goodbyeText, greetingText } from './greeting'
 import { log } from './log'
 import { startHelper } from './helper'
 import { startRelayServer } from './relay-server'
@@ -26,11 +28,27 @@ if (!app.requestSingleInstanceLock()) {
 
 // Hides the whole island until pressed again (also in the tray menu).
 const HIDE_SHORTCUT = 'Control+Alt+I'
+const GREET_DELAY_MS = 1200
+const GOODBYE_MS = 1800
 
 // Start with Windows. Run unpackaged (`electron .`), the login item must carry the app path, and
 // reading it back has to use the same path and args.
+const LOGIN_NAME = 'TheIsland'
+const APPROVED_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run'
 function loginItemOptions() {
-  return app.isPackaged ? {} : { path: process.execPath, args: [app.getAppPath()] }
+  return { name: LOGIN_NAME, ...(app.isPackaged ? {} : { path: process.execPath, args: [app.getAppPath()] }) }
+}
+// Windows skips a Run entry that has no "approved" mark (seen on 2026-10-22: Spotify, Chrome and Drive
+// ran at login, the island did not). Electron removes the mark instead of writing one, so write the
+// enabled value ourselves. `force` is for the user's own switch; at startup we only fill in a missing
+// mark and leave one the user turned off in Task Manager alone.
+function approveLoginItem(force) {
+  const add = () =>
+    execFile('reg', ['add', APPROVED_KEY, '/v', LOGIN_NAME, '/t', 'REG_BINARY', '/d', '02' + '0'.repeat(22), '/f'], (e) =>
+      e ? log('could not approve the login item', e.message) : log('login item approved')
+    )
+  if (force) return add()
+  execFile('reg', ['query', APPROVED_KEY, '/v', LOGIN_NAME], (e) => e && add())
 }
 function startsWithWindows() {
   try {
@@ -42,6 +60,7 @@ function startsWithWindows() {
 function setStartWithWindows(on) {
   try {
     app.setLoginItemSettings({ ...loginItemOptions(), openAtLogin: on })
+    if (on) approveLoginItem(true)
     log(on ? 'start with windows on' : 'start with windows off')
   } catch (e) {
     log('could not change the login item', e.message)
@@ -96,6 +115,17 @@ function start() {
     log(on ? 'island hidden' : 'island shown')
     tray?.refresh()
   }
+  // Returns false when there is no visible island to say it on.
+  let saidGoodbye = false
+  const sayGoodbye = () => {
+    if (hidden || !win || win.isDestroyed()) return false
+    if (!saidGoodbye) send('island:attention', { kind: 'bye', text: goodbyeText() })
+    saidGoodbye = true
+    return true
+  }
+
+  // Fill in a missing "approved" mark for a login item made before that fix.
+  if (startsWithWindows()) approveLoginItem(false)
 
   // Keep the copy the hooks run up to date with this version of the relay.
   try {
@@ -107,6 +137,7 @@ function start() {
   const settingsWin = createSettingsWindowManager()
   const hub = createClaudeHub({
     getConfig: getSettings,
+    closedHosts: (pids) => (media ? media.closedHosts(pids) : Promise.resolve(new Set())),
     onChange: (snap) => send('island:claude', snap),
     onAttention: (a) => {
       // An approval needs an answer, so it brings a hidden island back.
@@ -155,10 +186,22 @@ function start() {
     onOpenSettings: () => settingsWin.open(),
     isHidden: () => hidden,
     onToggleHidden: () => setHidden(!hidden),
+    onQuit: () => {
+      // Quit from the tray: show the goodbye for a moment first.
+      if (!sayGoodbye()) return app.quit()
+      setTimeout(() => app.quit(), GOODBYE_MS)
+    },
     hideShortcut: HIDE_SHORTCUT
   })
 
   win = createIslandWindow()
+  // Hello once the page is up (a moment later, so the island is on screen and listening).
+  win.webContents.once('did-finish-load', () =>
+    setTimeout(() => send('island:attention', { kind: 'greet', text: greetingText() }), GREET_DELAY_MS)
+  )
+  // Windows is shutting down, restarting or signing out: say goodbye while it closes apps.
+  win.on('query-session-end', () => sayGoodbye())
+  win.on('session-end', () => log('windows session ending'))
   if (!globalShortcut.register(HIDE_SHORTCUT, () => setHidden(!hidden)))
     log('could not register', HIDE_SHORTCUT, '(another app has it)')
   const fromIsland = (e) => win && !win.isDestroyed() && e.sender === win.webContents

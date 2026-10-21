@@ -65,7 +65,8 @@ export default function App() {
     }
   }, [])
 
-  // Brief message in the notch when a session finishes or needs input.
+  // Brief message in the notch when a session finishes or needs input, and the hello / goodbye
+  // (kind 'greet' / 'bye', with `text`).
   useEffect(
     () =>
       window.island.onAttention((a) => {
@@ -245,7 +246,12 @@ function Closed({ state, widgets, pill, notice, active }) {
           </span>
         )}
       </span>
-      {notice ? (
+      {notice?.text ? (
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Mascot mood="done" cell={1.5} active={active} />
+          <span className="max-w-[200px] truncate">{notice.text}</span>
+        </span>
+      ) : notice ? (
         <span className="flex min-w-0 items-center gap-1.5">
           <Mascot mood={notice.kind === 'done' ? 'done' : 'waiting'} cell={1.5} active={active} />
           <span className="max-w-[150px] truncate">{notice.project}</span>

@@ -7,9 +7,12 @@ import { log } from './log'
 
 // A session can vanish without SessionEnd (terminal closed, Claude killed mid-tool). Two guards:
 // 1. Liveness: the relay sends its parent pid (the Claude Code process). While sessions exist, a
-//    sweep checks once a minute that it is still running (process.kill(pid, 0), no spawning).
+//    sweep checks every 10 s that it is still running (process.kill(pid, 0): no spawning, costs nothing).
 // 2. Staleness: no events for a while turns "working" into "stale", and quiet sessions are forgotten.
-const SWEEP_MS = 60 * 1000
+// 3. Closed window: the Claude desktop app keeps its sessions running in the tray after its window is
+//    closed. A finished session there (idle or done, nothing waiting or running) goes at the next sweep;
+//    the helper says which desktop apps have no visible window (closedHosts). A working one stays.
+const SWEEP_MS = 10 * 1000
 const STUCK_MS = 10 * 60 * 1000
 const WAITING_STUCK_MS = 60 * 60 * 1000
 const FORGET_MS = 45 * 60 * 1000
@@ -46,7 +49,7 @@ function processName(pid) {
   })
 }
 
-export function createClaudeHub({ getConfig, onChange, onAttention }) {
+export function createClaudeHub({ getConfig, onChange, onAttention, closedHosts }) {
   const sessions = new Map()
   const approvals = new Map()
   let changeTimer = null
@@ -122,6 +125,32 @@ export function createClaudeHub({ getConfig, onChange, onAttention }) {
     }
     for (const pid of pidNames.keys()) if (![...sessions.values()].some((s) => s.pid === pid)) pidNames.delete(pid)
     if (any) changed()
+    dropClosedWindows()
+  }
+
+  const finished = (s) =>
+    sessions.get(s.id) === s &&
+    (s.state === 'done' || s.state === 'idle') &&
+    !hasApproval(s.id) &&
+    !s.agents.some((a) => a.state === 'running')
+
+  function dropClosedWindows() {
+    if (!closedHosts) return
+    const list = [...sessions.values()].filter((s) => s.pid && finished(s))
+    if (list.length === 0) return
+    closedHosts(list.map((s) => s.pid)).then((closed) => {
+      let any = false
+      // Checked again: an event may have arrived while the helper looked.
+      for (const s of list)
+        if (closed.has(s.pid) && finished(s)) {
+          sessions.delete(s.id)
+          any = true
+        }
+      if (any) {
+        log('cleared finished sessions of a closed Claude window')
+        changed()
+      }
+    })
   }
 
   function snapshot() {
