@@ -63,4 +63,4 @@ Test without Claude Code: pipe event JSON into the relay while the app runs, for
 Get-Process electron,media-helper | Select Name,Id,CPU,@{n='PrivateMB';e={[int]($_.PrivateMemorySize64/1MB)}}
 ```
 
-Sample CPU twice, 30 s apart, and compare. Baseline on 2026-10-21: idle about 117 MB private, under 1% of one core.
+Sample CPU twice, 30 s apart, and compare. Baseline on 2026-10-21: idle about 121 MB private, about 0.5% of one core.

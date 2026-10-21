@@ -54,7 +54,7 @@ Measured on 2026-10-21 (Electron 44, software rendering):
 
 | State | Private memory | CPU |
 | --- | --- | --- |
-| Idle | about 117 MB | under 1% of one core |
+| Idle (no session working) | about 121 MB | about 0.5% of one core |
 | A Claude session working | about 119 MB | about 6% of one core |
 
 ## Files and privacy
