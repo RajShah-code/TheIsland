@@ -123,7 +123,12 @@ export function createTray({ onConfigChanged, onCalendarChanged }) {
       )
       return
     }
-    setSecret('calendarUrl', url)
+    try {
+      setSecret('calendarUrl', url)
+    } catch (e) {
+      dialog.showErrorBox('TheIsland', 'Calendar not saved: ' + e.message)
+      return
+    }
     clipboard.clear()
     log('calendar url set')
     onCalendarChanged()
