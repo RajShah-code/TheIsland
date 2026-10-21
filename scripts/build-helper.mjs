@@ -36,6 +36,8 @@ execFileSync(
     '-r:' + join(winmd, 'Windows.Foundation.winmd'),
     '-r:' + join(winmd, 'Windows.Media.winmd'),
     '-r:' + join(winmd, 'Windows.Storage.winmd'),
+    '-r:' + join(winmd, 'Windows.Devices.winmd'),
+    '-r:' + join(fw, 'System.Management.dll'),
     src
   ],
   { stdio: 'inherit' }

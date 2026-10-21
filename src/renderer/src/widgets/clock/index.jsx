@@ -24,6 +24,12 @@ function Panel() {
   )
 }
 
+// For the closed notch: fills the left side when nothing else is there, e.g. "3:07 PM".
+export function CompactTime() {
+  const now = useMinute()
+  return <span className="text-white/85 tabular-nums">{time.format(now)}</span>
+}
+
 export default {
   id: 'clock',
   name: 'Clock',

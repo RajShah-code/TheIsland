@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Buddy } from './components/Buddy'
 import { ApprovalCard, ClaudeCompact, ClaudePanel, Dot, mostRelevant } from './components/Claude'
+import { SystemPanel } from './components/System'
 import { useIsland } from './store'
 import { widgets } from './widgets'
+import { CompactTime } from './widgets/clock'
 
 const NOTICE_MS = 5000
 // Shape sizes (px). The open size is measured from the content.
@@ -14,6 +16,7 @@ const OPEN_EAR = 16
 const PAD = 20
 const DIVIDER = 33
 const CLAUDE_W = 600
+const SYSTEM_W = 600
 // Fullscreen: reveal when the pointer touches the top edge near the centre, hide again after this.
 const PEEK_ZONE = 180
 const PEEK_HIDE_MS = 2500
@@ -43,6 +46,20 @@ export default function App() {
   const activeTab = approvals.length > 0 ? 'claude' : tab === 'claude' && !hasClaude ? 'home' : tab
   const homeWidgets = widgets.filter((w) => w.Panel && (!w.visible || w.visible(state)))
   now.current = { fullscreen, expanded, hidden }
+  // System stats are sampled only while they are on screen (see src/main/helper.js).
+  const systemVisible = expanded && activeTab === 'system'
+
+  useEffect(() => {
+    window.island.setSystemWatch(systemVisible)
+  }, [systemVisible])
+  useEffect(() => {
+    const off = () => window.island.setSystemWatch(false)
+    window.addEventListener('beforeunload', off)
+    return () => {
+      window.removeEventListener('beforeunload', off)
+      off()
+    }
+  }, [])
 
   // Brief message in the notch when a session finishes or needs input.
   useEffect(
@@ -143,7 +160,9 @@ export default function App() {
   const openWidth =
     activeTab === 'claude'
       ? CLAUDE_W
-      : PAD * 2 + homeWidgets.reduce((sum, w) => sum + w.width, 0) + DIVIDER * (homeWidgets.length - 1)
+      : activeTab === 'system'
+        ? SYSTEM_W
+        : PAD * 2 + homeWidgets.reduce((sum, w) => sum + w.width, 0) + DIVIDER * (homeWidgets.length - 1)
 
   return (
     <div className="h-full font-sans text-white">
@@ -172,6 +191,7 @@ export default function App() {
               widgets={homeWidgets}
               settings={settings}
               active={expanded}
+              systemVisible={systemVisible}
             />
           </div>
         </div>
@@ -180,12 +200,18 @@ export default function App() {
   )
 }
 
-// Closed notch: empty when nothing is happening; small live indicators on the sides otherwise.
+// Closed notch: small live indicators on the sides. The time fills the left side when no widget
+// has anything to show there.
 function Closed({ state, notice, active }) {
   const left = widgets.map((w) => w.Compact && <w.Compact key={w.id} />)
   return (
     <div className="flex h-full items-center justify-between gap-3 px-3.5 text-[12px] whitespace-nowrap">
-      <span className="flex min-w-0 items-center gap-2">{left}</span>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="peer flex min-w-0 items-center gap-2 empty:hidden">{left}</span>
+        <span className="hidden peer-empty:inline">
+          <CompactTime />
+        </span>
+      </span>
       {notice ? (
         <span className="flex min-w-0 items-center gap-1.5">
           <Buddy mood={notice.kind === 'done' ? 'done' : 'waiting'} cell={1.5} active={active} />
@@ -212,7 +238,7 @@ function Tab({ active, onClick, children }) {
   )
 }
 
-function Open({ state, tab, setTab, hasClaude, approvals, widgets, settings, active }) {
+function Open({ state, tab, setTab, hasClaude, approvals, widgets, settings, active, systemVisible }) {
   const top = mostRelevant(state.claude.sessions)
   return (
     <div className="px-5 pt-2.5 pb-4">
@@ -226,6 +252,9 @@ function Open({ state, tab, setTab, hasClaude, approvals, widgets, settings, act
             Claude Code
           </Tab>
         )}
+        <Tab active={tab === 'system'} onClick={() => setTab('system')}>
+          System
+        </Tab>
         {!settings.approvalsEnabled && hasClaude && (
           <span className="ml-auto text-[10px] text-white/35">Approvals off</span>
         )}
@@ -236,6 +265,8 @@ function Open({ state, tab, setTab, hasClaude, approvals, widgets, settings, act
         ) : (
           <ClaudePanel sessions={state.claude.sessions} active={active} />
         )
+      ) : tab === 'system' ? (
+        <SystemPanel system={state.system} settings={settings} active={systemVisible} />
       ) : (
         <div className="flex items-stretch">
           {widgets.map((w, i) => (

@@ -8,7 +8,14 @@ const EMPTY = {
   media: { available: false, active: false },
   calendar: { configured: false, events: [] },
   settings: { approvalsEnabled: true },
-  fullscreen: false
+  fullscreen: false,
+  // Stats are undefined until first sampled, null when not available (see src/main/helper.js).
+  system: {
+    audio: { available: false },
+    brightness: { available: false },
+    radios: { wifi: null, bluetooth: null },
+    keepAwake: false
+  }
 }
 
 export function IslandProvider({ children }) {
@@ -22,9 +29,10 @@ export function IslandProvider({ children }) {
       api.onMedia(set('media')),
       api.onCalendar(set('calendar')),
       api.onSettings(set('settings')),
-      api.onFullscreen(set('fullscreen'))
+      api.onFullscreen(set('fullscreen')),
+      api.onSystem(set('system'))
     ]
-    api.getState().then((s) => s && setState(s))
+    api.getState().then((s) => s && setState((cur) => ({ ...cur, ...s })))
     return () => offs.forEach((off) => off())
   }, [])
 

@@ -29,6 +29,10 @@ function start() {
   let win = null
   let hidden = false
   let tray = null
+  let media = null
+  // The renderer asks for System tab stats only while that tab is on screen; a hidden island never.
+  let systemWanted = false
+  const updateSystemWatch = () => media?.system.setWatch(systemWanted && !hidden)
   const send = (channel, data) => {
     if (win && !win.isDestroyed()) win.webContents.send(channel, data)
   }
@@ -41,6 +45,7 @@ function start() {
         win.setAlwaysOnTop(true, 'screen-saver')
       }
     }
+    updateSystemWatch()
     log(on ? 'island hidden' : 'island shown')
     tray?.refresh()
   }
@@ -63,15 +68,16 @@ function start() {
     }
   })
   const server = startRelayServer({ dir: app.getPath('userData'), onEvent: hub.handle })
-  const media = startHelper({
+  media = startHelper({
     onMedia: (m) => send('island:media', m),
-    onFullscreen: (on) => send('island:fullscreen', on)
+    onFullscreen: (on) => send('island:fullscreen', on),
+    onSystem: (s) => send('island:system', s)
   })
   const calendar = startCalendar({
     getUrl: () => getSecret('calendarUrl'),
     onChange: (c) => send('island:calendar', c)
   })
-  const settings = () => ({ approvalsEnabled: getConfig().approvalsEnabled })
+  const settings = () => ({ approvalsEnabled: getConfig().approvalsEnabled, system: getConfig().system })
   tray = createTray({
     onConfigChanged: () => {
       if (!getConfig().approvalsEnabled) hub.releaseAll()
@@ -87,6 +93,13 @@ function start() {
   if (!globalShortcut.register(HIDE_SHORTCUT, () => setHidden(!hidden)))
     log('could not register', HIDE_SHORTCUT, '(another app has it)')
   const fromIsland = (e) => win && !win.isDestroyed() && e.sender === win.webContents
+  // A reloading or crashed page can't say the System tab closed, so stop the stats for it.
+  const dropSystemWatch = () => {
+    systemWanted = false
+    updateSystemWatch()
+  }
+  win.webContents.on('did-start-loading', dropSystemWatch)
+  win.webContents.on('render-process-gone', dropSystemWatch)
 
   ipcMain.handle('island:state', (e) =>
     fromIsland(e)
@@ -95,7 +108,8 @@ function start() {
           media: media.get(),
           calendar: calendar.get(),
           settings: settings(),
-          fullscreen: media.isFullscreen()
+          fullscreen: media.isFullscreen(),
+          system: media.system.get()
         }
       : null
   )
@@ -104,6 +118,14 @@ function start() {
   })
   ipcMain.on('island:media', (e, cmd) => {
     if (fromIsland(e)) media.command(cmd)
+  })
+  ipcMain.on('island:system', (e, cmd, value) => {
+    if (fromIsland(e) && typeof cmd === 'string') media.system.command(cmd, value)
+  })
+  ipcMain.on('island:system-watch', (e, on) => {
+    if (!fromIsland(e)) return
+    systemWanted = on === true
+    updateSystemWatch()
   })
   ipcMain.on('island:interactive', (e, on) => {
     if (fromIsland(e)) win.setIgnoreMouseEvents(!on, { forward: true })
