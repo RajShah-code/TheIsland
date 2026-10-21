@@ -36,6 +36,10 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
 
 ## Claude Code hooks
 
+Sessions end on SessionEnd, when the Claude Code process (the relay's parent pid, checked once a minute while
+sessions exist) is gone, or by staleness: "working" with no events for 10 min shows as "No updates", quiet
+sessions are forgotten after 45 min. See `src/main/claude.js`.
+
 Events used: SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Notification, Stop, SessionEnd (all
 `async: true`), and PermissionRequest (sync, timeout 300 s). Hook entries use exec form
 (`command` = node.exe, `args` = [relay path]); ours are found by the relay filename. The relay drops prompt

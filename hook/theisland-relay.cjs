@@ -50,7 +50,8 @@ process.stdin.on('end', () => {
   clearTimeout(stdinGuard)
   let input
   try {
-    input = JSON.parse(Buffer.concat(chunks).toString('utf8'))
+    // Strip a UTF-8 BOM (Windows PowerShell adds one when piping).
+    input = JSON.parse(Buffer.concat(chunks).toString('utf8').replace(/^﻿/, ''))
   } catch {
     quit()
   }
@@ -88,7 +89,9 @@ function trim(e) {
     session_id: e.session_id,
     cwd: e.cwd,
     permission_mode: e.permission_mode,
-    agent_id: e.agent_id
+    agent_id: e.agent_id,
+    // The process that ran this hook: Claude Code. Lets the app notice when it's gone.
+    pid: process.ppid
   }
   if (ev === 'SessionStart') {
     out.source = e.source

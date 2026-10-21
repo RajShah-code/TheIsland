@@ -17,7 +17,8 @@ export const STATE = {
   working: { label: 'Working', dot: 'bg-amber-400', pulse: true },
   waiting: { label: 'Needs you', dot: 'bg-rose-500', pulse: false },
   done: { label: 'Done', dot: 'bg-emerald-400', pulse: false },
-  idle: { label: 'Idle', dot: 'bg-white/40', pulse: false }
+  idle: { label: 'Idle', dot: 'bg-white/40', pulse: false },
+  stale: { label: 'No updates', dot: 'bg-white/20', pulse: false }
 }
 
 export function Dot({ state }) {
@@ -26,7 +27,7 @@ export function Dot({ state }) {
   return <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${s.dot} ${lit ? '' : 'opacity-35'}`} />
 }
 
-const PRIORITY = { waiting: 0, working: 1, done: 2, idle: 3 }
+const PRIORITY = { waiting: 0, working: 1, done: 2, idle: 3, stale: 4 }
 
 export function mostRelevant(sessions) {
   return [...sessions].sort((a, b) => PRIORITY[a.state] - PRIORITY[b.state] || b.updatedAt - a.updatedAt)[0]
@@ -55,7 +56,7 @@ export function SessionList({ sessions }) {
   return (
     <div className="space-y-1">
       {sessions.map((s) => (
-        <div key={s.id} className="flex items-center gap-2 text-xs">
+        <div key={s.id} className={`flex items-center gap-2 text-xs ${s.state === 'stale' ? 'opacity-50' : ''}`}>
           <Dot state={s.state} />
           <span className="max-w-[150px] shrink-0 truncate font-medium">{s.title || s.project}</span>
           <span className="shrink-0 text-white/45">{STATE[s.state]?.label}</span>
