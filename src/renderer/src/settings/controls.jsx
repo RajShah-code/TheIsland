@@ -183,7 +183,7 @@ function Arrow({ up }) {
 const iconBtn =
   'grid h-7 w-7 place-items-center rounded-md text-white/50 transition-colors hover:bg-white/10 hover:text-white disabled:pointer-events-none disabled:opacity-25'
 
-// items: [{ id, name, help? }] already in display order. hidden: Set of ids.
+// items: [{ id, name, help?, icon? }] already in display order (icon: a small element shown first). hidden: Set of ids.
 // onReorder(ids) gets the new order; onToggle(id, shown) shows or hides one.
 export function ReorderList({ items, hidden, onReorder, onToggle, label }) {
   const [drag, setDrag] = useState(null)
@@ -263,6 +263,13 @@ export function ReorderList({ items, hidden, onReorder, onToggle, label }) {
             <span className="cursor-grab text-white/25 hover:text-white/50 active:cursor-grabbing" title="Drag to reorder">
               <Grip />
             </span>
+            {it.icon && (
+              <span
+                className={`grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white/[0.06] ${shown ? 'text-white/80' : 'text-white/30'}`}
+              >
+                {it.icon}
+              </span>
+            )}
             <div className="min-w-0 flex-1">
               <div className={`text-[13px] font-medium ${shown ? 'text-white/90' : 'text-white/40'}`}>{it.name}</div>
               {it.help && <p className="text-[12px] leading-snug text-white/40">{it.help}</p>}

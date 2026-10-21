@@ -16,7 +16,8 @@ const OPEN_EAR = 16
 const PAD = 20
 const DIVIDER = 33
 const CLAUDE_W = 600
-const SYSTEM_W = 600
+// Wide enough for the meters plus a four-column grid of Quick Settings tiles (the window is 820).
+const SYSTEM_W = 680
 // Home tab with every widget hidden in settings.
 const EMPTY_HOME_W = 300
 // Fullscreen: reveal when the pointer touches the top edge near the centre, hide again after this.

@@ -5,8 +5,15 @@
 
 export const WIDGET_IDS = ['music', 'clock', 'calendar']
 
-// System tab items. kind: 'meter' (left column) or 'control' (right column); layout tells a control
-// whether it takes a full row ('row') or sits with its neighbours as a pill ('pill').
+// System tab items. kind tells the System tab how to draw one:
+//   'meter'   a live reading in the left column
+//   'slider'  a full-width row with a slider (volume, brightness)
+//   'picker'  a full-width row that opens a short list (sound output)
+//   'toggle'  a Quick Settings tile that shows on/off from the system state
+//   'action'  a tile that does one thing (a shortcut, lock, sleep)
+//   'link'    a tile that opens a page of Windows Settings
+// Everything that is not a meter sits in the right column. New ids are appended to a saved order by
+// normalizeSettings, so existing users get new tiles at the end, visible.
 export const SYSTEM_ITEMS = [
   { id: 'cpu', name: 'CPU', kind: 'meter' },
   { id: 'ram', name: 'Memory', kind: 'meter' },
@@ -14,14 +21,34 @@ export const SYSTEM_ITEMS = [
   { id: 'disk', name: 'Disk', kind: 'meter' },
   { id: 'network', name: 'Network', kind: 'meter' },
   { id: 'battery', name: 'Battery', kind: 'meter' },
-  { id: 'volume', name: 'Volume', kind: 'control', layout: 'row' },
-  { id: 'brightness', name: 'Brightness', kind: 'control', layout: 'row' },
-  { id: 'wifi', name: 'Wi-Fi', kind: 'control', layout: 'pill' },
-  { id: 'bluetooth', name: 'Bluetooth', kind: 'control', layout: 'pill' },
-  { id: 'keepAwake', name: 'Keep awake', kind: 'control', layout: 'pill' },
-  { id: 'lock', name: 'Lock', kind: 'control', layout: 'pill' },
-  { id: 'sleep', name: 'Sleep', kind: 'control', layout: 'pill' }
+  { id: 'volume', name: 'Volume', kind: 'slider' },
+  { id: 'brightness', name: 'Brightness', kind: 'slider' },
+  { id: 'output', name: 'Sound output', kind: 'picker' },
+  { id: 'wifi', name: 'Wi-Fi', kind: 'toggle' },
+  { id: 'bluetooth', name: 'Bluetooth', kind: 'toggle' },
+  { id: 'airplane', name: 'Airplane mode', kind: 'toggle' },
+  { id: 'hotspot', name: 'Mobile hotspot', kind: 'toggle' },
+  { id: 'energySaver', name: 'Energy saver', kind: 'link' },
+  { id: 'nightLight', name: 'Night light', kind: 'toggle' },
+  { id: 'dnd', name: 'Do not disturb', kind: 'link' },
+  { id: 'accessibility', name: 'Accessibility', kind: 'link' },
+  { id: 'nearby', name: 'Nearby sharing', kind: 'link' },
+  { id: 'cast', name: 'Cast', kind: 'action' },
+  { id: 'project', name: 'Project', kind: 'action' },
+  { id: 'captions', name: 'Live captions', kind: 'action' },
+  { id: 'colorFilters', name: 'Color filters', kind: 'toggle' },
+  { id: 'keyboard', name: 'Keyboard layout', kind: 'action' },
+  { id: 'mic', name: 'Mic mute', kind: 'toggle' },
+  { id: 'keepAwake', name: 'Keep awake', kind: 'toggle' },
+  { id: 'screenshot', name: 'Screenshot', kind: 'action' },
+  { id: 'notifications', name: 'Notifications', kind: 'action' },
+  { id: 'lock', name: 'Lock', kind: 'action' },
+  { id: 'sleep', name: 'Sleep', kind: 'action' },
+  { id: 'settings', name: 'Settings', kind: 'link' }
 ]
+export const isSystemControl = (it) => it.kind !== 'meter'
+// How the System tab draws its tiles: icon and label, icon only (label as tooltip) or label only.
+export const CONTROL_STYLES = ['both', 'icon', 'label']
 export const SYSTEM_IDS = SYSTEM_ITEMS.map((it) => it.id)
 
 export const PILL_LEFT = ['time', 'date', 'none']
@@ -38,7 +65,7 @@ export const DEFAULT_SETTINGS = {
   approvalTimeoutSec: 120,
   pill: { leftFallback: 'time', rightFallback: 'none' },
   widgets: { order: [...WIDGET_IDS], hidden: [] },
-  system: { order: [...SYSTEM_IDS], hidden: [] },
+  system: { order: [...SYSTEM_IDS], hidden: [], controlStyle: 'both' },
   claude: { buddy: true },
   island: { ghostOpacity: 0.15 }
 }
@@ -51,12 +78,18 @@ function num(v, lo, hi, base) {
   return typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : base
 }
 
-// Known ids in the given order, no repeats, then any missing ones in their default order.
+// Known ids in the given order, no repeats, plus any missing ones placed by their default order.
 function order(v, ids, base) {
   if (!Array.isArray(v)) return base
   const out = []
   for (const id of v) if (ids.includes(id) && !out.includes(id)) out.push(id)
-  for (const id of ids) if (!out.includes(id)) out.push(id)
+  // A missing (new) id goes right after its default predecessor, so new System tab tiles join the
+  // tiles and the output picker sits with the sliders instead of everything landing at the very end.
+  ids.forEach((id, i) => {
+    if (out.includes(id)) return
+    const prev = i > 0 ? out.indexOf(ids[i - 1]) : -1
+    out.splice(prev + 1, 0, id)
+  })
   return out
 }
 
@@ -82,7 +115,8 @@ export function normalizeSettings(raw, base = DEFAULT_SETTINGS) {
     },
     system: {
       order: order(g('system').order, SYSTEM_IDS, base.system?.order ?? d.system.order),
-      hidden: hidden(g('system').hidden, SYSTEM_IDS, base.system?.hidden ?? d.system.hidden)
+      hidden: hidden(g('system').hidden, SYSTEM_IDS, base.system?.hidden ?? d.system.hidden),
+      controlStyle: oneOf(g('system').controlStyle, CONTROL_STYLES, base.system?.controlStyle ?? d.system.controlStyle)
     },
     claude: { buddy: bool(g('claude').buddy, base.claude?.buddy ?? d.claude.buddy) },
     island: {

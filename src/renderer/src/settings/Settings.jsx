@@ -9,8 +9,10 @@ import {
   TIMEOUT_MAX,
   TIMEOUT_MIN,
   WIDGET_IDS,
+  isSystemControl,
   sortByOrder
 } from '../../../shared/settings-model.mjs'
+import { Icon, SYSTEM_ICONS } from '../components/icons'
 import { Card, ReorderList, Row, Segmented, Slider, Toggle } from './controls'
 
 const api = window.settingsApi
@@ -260,16 +262,36 @@ function HomeSection({ view, save }) {
   )
 }
 
+const CONTROL_STYLE_OPTIONS = [
+  { value: 'both', label: 'Both' },
+  { value: 'icon', label: 'Icon' },
+  { value: 'label', label: 'Label' }
+]
+
 function SystemSection({ view, save }) {
-  const { order, hidden } = view.system
-  const sorted = sortByOrder(SYSTEM_ITEMS, order)
-  const meters = sorted.filter((it) => it.kind === 'meter')
-  const controls = sorted.filter((it) => it.kind === 'control')
+  const { order, hidden, controlStyle } = view.system
+  const sorted = sortByOrder(SYSTEM_ITEMS, order).map((it) => ({
+    ...it,
+    icon: <Icon name={SYSTEM_ICONS[it.id]} />,
+    help: it.kind === 'link' ? 'Opens Windows Settings' : undefined
+  }))
+  const meters = sorted.filter((it) => !isSystemControl(it))
+  const controls = sorted.filter(isSystemControl)
   const hiddenSet = new Set(hidden)
   const toggle = (id, on) => save({ system: { hidden: on ? hidden.filter((x) => x !== id) : [...hidden, id] } })
   const ids = (list) => list.map((it) => it.id)
   return (
     <>
+      <Card>
+        <Row id="system-style" label="Control buttons" help="Icon and label, icon only (the name shows on hover) or label only.">
+          <Segmented
+            labelledBy="system-style"
+            value={controlStyle}
+            options={CONTROL_STYLE_OPTIONS}
+            onChange={(v) => save({ system: { controlStyle: v } })}
+          />
+        </Row>
+      </Card>
       <Card title="Meters" help="The left column. Stats are only sampled while the System tab is open.">
         <ReorderList
           label="System meters"
@@ -279,7 +301,10 @@ function SystemSection({ view, save }) {
           onToggle={toggle}
         />
       </Card>
-      <Card title="Controls" help="The right column. Neighbouring buttons share a row.">
+      <Card
+        title="Controls"
+        help="The right column, like Windows Quick Settings. Sliders take a full line; neighbouring buttons share a grid."
+      >
         <ReorderList
           label="System controls"
           items={controls}

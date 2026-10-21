@@ -1,6 +1,7 @@
 // Runs resources/island-helper.exe (see helper/IslandHelper.cs). It pushes a JSON line when the
 // Windows media session changes, when a fullscreen app starts/stops, and for the System tab (audio,
-// brightness, radios on change; GPU/disk/network once a second only while asked with "stats on").
+// brightness, radios, Quick Settings state and sound outputs on change; GPU/disk/network once a
+// second only while asked with "stats on").
 // The helper exits when we close its stdin.
 //
 // System tab: CPU and RAM are sampled here (node's os module), but only while the renderer says the
@@ -31,6 +32,34 @@ const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
 const bool = (v) => (typeof v === 'boolean' ? v : null)
 const pct = (v) => Math.max(0, Math.min(100, Math.round(v)))
 const NO_RADIOS = { wifi: null, bluetooth: null }
+// Quick Settings state from the helper's "quick" line. null: not available (or not reported yet).
+const NO_QUICK = {
+  airplane: null,
+  hotspot: null,
+  micMuted: null,
+  micAvailable: false,
+  nightLight: null,
+  energySaver: null,
+  colorFilters: null
+}
+// Windows shortcuts the helper can send ("keys <name>").
+const KEYS = ['cast', 'project', 'captions', 'keyboard', 'screenshot', 'notifications', 'quick', 'emoji']
+const MAX_OUTPUTS = 32
+const onOff = (v) => (typeof v === 'boolean' ? (v ? 'on' : 'off') : null)
+
+// Sound output devices from the helper's "outputs" line: { id, name, default } with sane sizes only.
+function parseOutputs(list) {
+  if (!Array.isArray(list)) return []
+  const out = []
+  for (const d of list) {
+    if (out.length >= MAX_OUTPUTS) break
+    if (!d || typeof d.id !== 'string' || !d.id || d.id.length > 512 || /[\r\n]/.test(d.id)) continue
+    if (out.some((o) => o.id === d.id)) continue
+    const name = typeof d.name === 'string' && d.name.trim() ? d.name.trim().slice(0, 200) : 'Unknown device'
+    out.push({ id: d.id, name, default: d.default === true })
+  }
+  return out
+}
 
 export function startHelper({ onMedia, onFullscreen, onSystem }) {
   const exe = path.join(app.getAppPath(), 'resources', 'island-helper.exe').replace('app.asar', 'app.asar.unpacked')
@@ -54,9 +83,16 @@ export function startHelper({ onMedia, onFullscreen, onSystem }) {
     audio: { available: false },
     brightness: { available: false },
     radios: NO_RADIOS,
+    quick: NO_QUICK,
+    outputs: [],
     keepAwake: false
   }
   let watching = false
+  // Windows only reports its own airplane switch, not the one we fake by turning every radio off, so
+  // remember ours until a radio comes back on.
+  let ourAirplane = false
+  let rawAirplane = null
+  const airplaneShown = () => (ourAirplane ? true : rawAirplane)
   let statsTimer = null
   let lastCpu = null
   let lastHelperStats = 0
@@ -102,7 +138,14 @@ export function startHelper({ onMedia, onFullscreen, onSystem }) {
       if (restarts++ < 5) setTimeout(launch, 2000 * restarts)
       else {
         onMedia((state = { available: false, active: false }))
-        system = { ...system, audio: { available: false }, brightness: { available: false }, radios: NO_RADIOS }
+        system = {
+          ...system,
+          audio: { available: false },
+          brightness: { available: false },
+          radios: NO_RADIOS,
+          quick: NO_QUICK,
+          outputs: []
+        }
         emitSystem()
       }
     })
@@ -156,7 +199,29 @@ export function startHelper({ onMedia, onFullscreen, onSystem }) {
         }
         return emitSystem()
       case 'radios':
-        system = { ...system, radios: { wifi: bool(m.wifi), bluetooth: bool(m.bluetooth) } }
+        if (m.wifi === true || m.bluetooth === true) ourAirplane = false
+        system = {
+          ...system,
+          radios: { wifi: bool(m.wifi), bluetooth: bool(m.bluetooth) },
+          quick: { ...system.quick, airplane: airplaneShown() }
+        }
+        return emitSystem()
+      case 'quick':
+        system = {
+          ...system,
+          quick: {
+            airplane: ((rawAirplane = bool(m.airplane)), airplaneShown()),
+            hotspot: bool(m.hotspot),
+            micMuted: bool(m.micMuted),
+            micAvailable: m.micAvailable === true,
+            nightLight: bool(m.nightLight),
+            energySaver: bool(m.energySaver),
+            colorFilters: bool(m.colorFilters)
+          }
+        }
+        return emitSystem()
+      case 'outputs':
+        system = { ...system, outputs: parseOutputs(m.devices) }
         return emitSystem()
     }
   }
@@ -186,6 +251,7 @@ export function startHelper({ onMedia, onFullscreen, onSystem }) {
       watchSince = Date.now()
       lastCpu = null
       write('stats on')
+      write('outputs') // the device list can change while the tab is closed
       sample() // RAM right away; CPU needs a second sample for its delta.
       emitSystem()
       statsTimer = setInterval(() => {
@@ -231,6 +297,33 @@ export function startHelper({ onMedia, onFullscreen, onSystem }) {
       case 'wifi':
       case 'bluetooth':
         if (typeof value === 'boolean') write(`${cmd} ${value ? 'on' : 'off'}`)
+        return
+      case 'airplane':
+      case 'hotspot':
+      case 'nightlight':
+      case 'energysaver': {
+        const v = onOff(value)
+        if (cmd === 'airplane' && v) ourAirplane = v === 'on'
+        if (v) write(`${cmd} ${v}`)
+        return
+      }
+      case 'micmute':
+        if (['on', 'off', 'toggle'].includes(value)) write('micmute ' + value)
+        return
+      case 'colorfilters':
+        if (value === 'toggle') write('colorfilters toggle')
+        return
+      case 'keys':
+        if (KEYS.includes(value)) write('keys ' + value)
+        return
+      case 'outputs':
+        return write('outputs')
+      case 'output':
+        // Only an id from the last list the helper sent (parseOutputs drops ids with line breaks).
+        if (typeof value === 'string' && system.outputs.some((o) => o.id === value)) {
+          write('output ' + value)
+          write('outputs')
+        }
         return
       case 'lock':
       case 'sleep':

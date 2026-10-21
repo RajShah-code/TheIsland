@@ -44,7 +44,7 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
 - `src/shared/settings-model.mjs` the settings model: defaults, `normalizeSettings` (clamps, drops unknown
   keys), `applySettingsPatch`, `sortByOrder`, `WIDGET_IDS`, `SYSTEM_ITEMS`. Shape: `approvalsEnabled`,
   `approvalTimeoutSec` (30..285, the hook dies at 300 s), `pill { leftFallback, rightFallback }`,
-  `widgets { order, hidden }`, `system { order, hidden }`, `claude { buddy }`, `island { ghostOpacity }`.
+  `widgets { order, hidden }`, `system { order, hidden, controlStyle }`, `claude { buddy }`, `island { ghostOpacity }`.
   Start with Windows is the real login item (`app.getLoginItemSettings`), not stored.
 - `hook/theisland-relay.cjs` the script Claude Code runs. Copied to `%APPDATA%\TheIsland` at app start so
   the hook path doesn't depend on this folder. No dependencies, exits 0 silently on any problem.

@@ -20,10 +20,21 @@
 //     {"type":"brightness","available":true,"value":70} at startup, after a set and on any change,
 //       or {"type":"brightness","available":false},
 //     {"type":"radios","wifi":true,"bluetooth":false} at startup and on any change (null = no such radio).
+//     {"type":"quick","airplane":b,"hotspot":b,"micMuted":b,"micAvailable":true,"nightLight":b,
+//       "energySaver":b,"colorFilters":b} (b = true|false|null, null = not available here) at startup,
+//       on "system refresh", after any quick command and on a change. Mic mute is event-driven; the
+//       rest is only re-read once per second while stats are on.
+//     {"type":"outputs","devices":[{"id":"...","name":"Speakers","default":true}]} at startup, on
+//       "outputs", "system refresh" and when the default or the set of output devices changes.
 //   stdin  <- commands: "toggle", "next", "prev", "refresh",
 //     "stats on", "stats off", "volume <0-100>", "mute on|off|toggle", "brightness <0-100>",
 //     "wifi on|off", "bluetooth on|off", "lock", "sleep",
-//     "system refresh" (re-sends audio, brightness and radios).
+//     "airplane on|off", "hotspot on|off", "micmute on|off|toggle", "nightlight on|off",
+//     "energysaver on|off" (no public API to set it: only re-sends the state),
+//     "colorfilters toggle|on|off" (Win+Ctrl+C, only when the shortcut is enabled in Settings),
+//     "keys cast|project|captions|keyboard|screenshot|notifications|quick|emoji",
+//     "outputs", "output <device id>",
+//     "system refresh" (re-sends audio, brightness, radios, quick and outputs).
 // The helper exits when stdin closes, so it never outlives the app.
 //
 // Built with the C# compiler that ships with Windows (.NET Framework 4), no SDK needed.
@@ -38,10 +49,14 @@ using System.Management;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using Microsoft.Win32;
 using Windows.Devices.Radios;
 using Windows.Foundation;
 using Windows.Media.Control;
+using Windows.Networking.Connectivity;
+using Windows.Networking.NetworkOperators;
 using Windows.Storage.Streams;
+using Windows.System.Power;
 
 class IslandHelper
 {
@@ -94,7 +109,11 @@ class IslandHelper
         statsTimer = new Timer(_ => SampleStats(), null, Timeout.Infinite, Timeout.Infinite);
         radioDebounce = new Timer(_ => EmitRadios(), null, Timeout.Infinite, Timeout.Infinite);
         audioReattach = new Timer(_ => AttachAudio(true), null, Timeout.Infinite, Timeout.Infinite);
+        micReattach = new Timer(_ => { AttachMic(); EmitQuick(false); }, null, Timeout.Infinite, Timeout.Infinite);
+        outputsDebounce = new Timer(_ => EmitOutputs(), null, Timeout.Infinite, Timeout.Infinite);
         AttachAudio(true);
+        AttachMic();
+        EmitOutputs();
         var bt = new Thread(BrightnessWorker);
         bt.IsBackground = true;
         bt.Start();
@@ -326,6 +345,64 @@ class IslandHelper
                     Interlocked.Exchange(ref brightReadPending, 1);
                     brightWake.Set();
                     radioDebounce.Change(0, Timeout.Infinite);
+                    QuickAfter(0);
+                    outputsDebounce.Change(0, Timeout.Infinite);
+                }
+                return true;
+            case "airplane":
+                if (arg == "on" || arg == "off")
+                {
+                    bool on = arg == "on";
+                    ThreadPool.QueueUserWorkItem(_ => SetAirplane(on));
+                }
+                return true;
+            case "hotspot":
+                if (arg == "on" || arg == "off")
+                {
+                    bool on = arg == "on";
+                    ThreadPool.QueueUserWorkItem(_ => SetHotspot(on));
+                }
+                return true;
+            case "micmute":
+                if (arg == "on") SetMicMute(1);
+                else if (arg == "off") SetMicMute(0);
+                else if (arg == "toggle") SetMicMute(-1);
+                else return true;
+                QuickAfter(0);
+                return true;
+            case "nightlight":
+                if (arg == "on" || arg == "off")
+                {
+                    bool on = arg == "on";
+                    ThreadPool.QueueUserWorkItem(_ => { SetNightLight(on); QuickAfter(0); });
+                }
+                return true;
+            case "energysaver":
+                // Windows has no public API to switch energy saver; just re-send the real state.
+                if (arg == "on" || arg == "off") QuickAfter(0);
+                return true;
+            case "colorfilters":
+                if (arg == "toggle" || arg == "on" || arg == "off")
+                {
+                    if (ToggleColorFilters(arg)) QuickAfter(400);
+                    else QuickAfter(0);
+                }
+                return true;
+            case "keys":
+                {
+                    ushort[] combo;
+                    if (Shortcuts.TryGetValue(arg, out combo)) SendCombo(combo);
+                    QuickAfter(0);
+                    return true;
+                }
+            case "outputs":
+                outputsDebounce.Change(0, Timeout.Infinite);
+                return true;
+            case "output":
+                if (arg.Length > 0)
+                {
+                    string id = arg;
+                    ThreadPool.QueueUserWorkItem(_ => { SetDefaultOutput(id); outputsDebounce.Change(150, Timeout.Infinite); QuickAfter(0); });
                 }
                 return true;
         }
@@ -498,6 +575,9 @@ class IslandHelper
             sb.Append(",\"netUp\":").Append(Num(v[4], "0"));
             sb.Append("}");
             Write(sb.ToString());
+            // Quick settings without events ride on the stats tick: nothing extra runs while stats are off.
+            ReadQuickAll(true);
+            EmitQuick(false);
         }
         catch { }
         finally { Monitor.Exit(statsLock); }
@@ -511,7 +591,7 @@ class IslandHelper
     [ComImport, Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IMMDeviceEnumerator
     {
-        [PreserveSig] int EnumAudioEndpoints(int dataFlow, int stateMask, out IntPtr devices);
+        [PreserveSig] int EnumAudioEndpoints(int dataFlow, int stateMask, out IMMDeviceCollection devices);
         [PreserveSig] int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice device);
         [PreserveSig] int GetDevice([MarshalAs(UnmanagedType.LPWStr)] string id, out IMMDevice device);
         [PreserveSig] int RegisterEndpointNotificationCallback(IMMNotificationClient client);
@@ -522,6 +602,50 @@ class IslandHelper
     interface IMMDevice
     {
         [PreserveSig] int Activate(ref Guid iid, int clsCtx, IntPtr activationParams, [MarshalAs(UnmanagedType.IUnknown)] out object iface);
+        [PreserveSig] int OpenPropertyStore(int access, out IPropertyStore store);
+        [PreserveSig] int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
+        [PreserveSig] int GetState(out int state);
+    }
+
+    [ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IMMDeviceCollection
+    {
+        [PreserveSig] int GetCount(out uint count);
+        [PreserveSig] int Item(uint index, out IMMDevice device);
+    }
+
+    [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPropertyStore
+    {
+        [PreserveSig] int GetCount(out uint count);
+        [PreserveSig] int GetAt(uint index, out PropertyKey key);
+        [PreserveSig] int GetValue(ref PropertyKey key, out PropVariant value);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct PropVariant { public ushort vt; public ushort r1, r2, r3; public IntPtr p; public IntPtr p2; }
+
+    [DllImport("ole32.dll")] static extern int PropVariantClear(ref PropVariant pv);
+
+    // Undocumented but stable since Windows 7; what the Sound control panel uses to pick the default.
+    [ComImport, Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
+    class PolicyConfigClient { }
+
+    [ComImport, Guid("F8679F50-850A-41CF-9C72-430F290290C8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPolicyConfig
+    {
+        [PreserveSig] int GetMixFormat([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr format);
+        [PreserveSig] int GetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id, int def, IntPtr format);
+        [PreserveSig] int ResetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id);
+        [PreserveSig] int SetDeviceFormat([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr endpointFormat, IntPtr mixFormat);
+        [PreserveSig] int GetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string id, int def, IntPtr defaultPeriod, IntPtr minPeriod);
+        [PreserveSig] int SetProcessingPeriod([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr period);
+        [PreserveSig] int GetShareMode([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr mode);
+        [PreserveSig] int SetShareMode([MarshalAs(UnmanagedType.LPWStr)] string id, IntPtr mode);
+        [PreserveSig] int GetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string id, int fxStore, IntPtr key, IntPtr value);
+        [PreserveSig] int SetPropertyValue([MarshalAs(UnmanagedType.LPWStr)] string id, int fxStore, IntPtr key, IntPtr value);
+        [PreserveSig] int SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string id, int role);
+        [PreserveSig] int SetEndpointVisibility([MarshalAs(UnmanagedType.LPWStr)] string id, int visible);
     }
 
     [ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -579,13 +703,19 @@ class IslandHelper
 
     class DeviceCallback : IMMNotificationClient
     {
-        public int OnDeviceStateChanged(string id, int state) { return 0; }
+        // The output list changes when a device appears, goes away or is enabled/disabled.
+        public int OnDeviceStateChanged(string id, int state) { try { outputsDebounce.Change(300, Timeout.Infinite); } catch { } return 0; }
         public int OnDeviceAdded(string id) { return 0; }
         public int OnDeviceRemoved(string id) { return 0; }
         public int OnDefaultDeviceChanged(int flow, int role, string id)
         {
             // Fires once per role; re-attaching from inside the callback isn't allowed, so do it shortly after.
-            if (flow == 0) try { audioReattach.Change(200, Timeout.Infinite); } catch { }
+            try
+            {
+                if (flow == 0) { audioReattach.Change(200, Timeout.Infinite); outputsDebounce.Change(250, Timeout.Infinite); }
+                else if (flow == 1) micReattach.Change(200, Timeout.Infinite);
+            }
+            catch { }
             return 0;
         }
         public int OnPropertyValueChanged(string id, PropertyKey key) { return 0; }
@@ -816,16 +946,20 @@ class IslandHelper
             // Desktop apps are normally allowed; ask anyway so SetStateAsync doesn't get refused later.
             try { Wait(Radio.RequestAccessAsync()); } catch { }
             var list = new List<Radio>();
+            var all = new List<Radio>();
             foreach (var r in Wait(Radio.GetRadiosAsync()))
             {
-                if (r.Kind != RadioKind.WiFi && r.Kind != RadioKind.Bluetooth) continue;
                 r.StateChanged += (x, e) => radioDebounce.Change(100, Timeout.Infinite);
-                list.Add(r);
+                all.Add(r);
+                if (r.Kind == RadioKind.WiFi || r.Kind == RadioKind.Bluetooth) list.Add(r);
             }
             radios = list;
+            allRadios = all;
         }
         catch { }
         EmitRadios();
+        // Airplane falls back to the radio list, so the first quick report waits for it.
+        QuickAfter(0);
     }
 
     static bool? RadioOn(RadioKind kind)
@@ -848,6 +982,14 @@ class IslandHelper
             Write("{\"type\":\"radios\",\"wifi\":" + Bool(RadioOn(RadioKind.WiFi)) + ",\"bluetooth\":" + Bool(RadioOn(RadioKind.Bluetooth)) + "}");
         }
         catch { }
+        // A radio change is also the moment airplane mode may have flipped; cheap to re-check here.
+        try
+        {
+            bool? a = ReadAirplane();
+            lock (quickLock) { qAirplane = a; }
+            if (quickReady) EmitQuick(false);
+        }
+        catch { }
     }
 
     static void SetRadio(RadioKind kind, bool on)
@@ -861,6 +1003,695 @@ class IslandHelper
         }
         // If the switch was refused (airplane mode, policy) there is no StateChanged, so report anyway.
         radioDebounce.Change(100, Timeout.Infinite);
+    }
+
+    // ---- Quick settings ----
+    //
+    // The controls of the taskbar's Quick Settings panel. Mic mute is event-driven (Core Audio); the rest
+    // has no cheap change event, so it is re-read on the stats tick (only while stats are on), at startup,
+    // on "system refresh" and after our own commands. Only differences are sent, except for those
+    // explicit moments, which always send so the UI can resync.
+
+    static readonly object quickLock = new object();
+    static bool? qAirplane, qHotspot, qMic, qNight, qEnergy, qColor;
+    static volatile bool quickReady = false;
+    static string lastQuick = null;
+
+    // tick = the per-second stats re-read, which may reuse slow lookups (see GetTether).
+    static void ReadQuickAll(bool tick = false)
+    {
+        bool? a = null, h = null, m = null, n = null, e = null, c = null;
+        try { a = ReadAirplane(); } catch { }
+        try { h = ReadHotspot(!tick); } catch { }
+        try { m = ReadMicMute(); } catch { }
+        try { n = ReadNightLight(); } catch { }
+        try { e = ReadEnergySaver(); } catch { }
+        try { c = ReadColorFilters(); } catch { }
+        lock (quickLock)
+        {
+            qAirplane = a; qHotspot = h; qMic = m; qNight = n; qEnergy = e; qColor = c;
+        }
+        quickReady = true;
+    }
+
+    static void EmitQuick(bool force)
+    {
+        if (!quickReady) return;
+        string json;
+        lock (quickLock)
+        {
+            json = "{\"type\":\"quick\",\"airplane\":" + Bool(qAirplane) + ",\"hotspot\":" + Bool(qHotspot)
+                + ",\"micMuted\":" + Bool(qMic) + ",\"micAvailable\":" + (qMic.HasValue ? "true" : "false")
+                + ",\"nightLight\":" + Bool(qNight) + ",\"energySaver\":" + Bool(qEnergy)
+                + ",\"colorFilters\":" + Bool(qColor) + "}";
+            if (!force && json == lastQuick) return;
+            lastQuick = json;
+        }
+        Write(json);
+    }
+
+    // Full re-read and a forced report, off the stdin loop (hotspot and registry reads can take a moment).
+    static void QuickAfter(int delayMs)
+    {
+        ThreadPool.QueueUserWorkItem(_ =>
+        {
+            try
+            {
+                if (delayMs > 0) Thread.Sleep(delayMs);
+                ReadQuickAll();
+                EmitQuick(true);
+            }
+            catch { }
+        });
+    }
+
+    // -- Airplane mode --
+    // Windows' own airplane switch is not reachable from a desktop app. Reading uses the radio
+    // manager's system state when it is there; "on" turns every radio off and "off" restores them.
+
+    static List<Radio> allRadios = null;
+    static Dictionary<Radio, RadioState> radiosBeforeAirplane = null;
+
+    static bool? ReadAirplane()
+    {
+        try
+        {
+            using (var k = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\RadioManagement\SystemRadioState"))
+            {
+                if (k != null)
+                {
+                    object v = k.GetValue("");
+                    if (v is int) return (int)v == 1;
+                }
+            }
+        }
+        catch { }
+        var list = allRadios;
+        if (list == null || list.Count == 0) return null;
+        foreach (var r in list)
+        {
+            try { if (r.State == RadioState.On) return false; } catch { }
+        }
+        return true;
+    }
+
+    static void SetAirplane(bool on)
+    {
+        var list = allRadios;
+        if (list != null)
+        {
+            if (on)
+            {
+                var saved = new Dictionary<Radio, RadioState>();
+                foreach (var r in list)
+                {
+                    try { saved[r] = r.State; } catch { }
+                }
+                radiosBeforeAirplane = saved;
+                foreach (var r in list)
+                {
+                    try { Wait(r.SetStateAsync(RadioState.Off)); } catch { }
+                }
+            }
+            else
+            {
+                // Restore what we switched off; without a record of that, turn everything back on.
+                var saved = radiosBeforeAirplane;
+                radiosBeforeAirplane = null;
+                foreach (var r in list)
+                {
+                    RadioState was;
+                    bool want = saved == null || !saved.TryGetValue(r, out was) || was == RadioState.On;
+                    if (!want) continue;
+                    try { Wait(r.SetStateAsync(RadioState.On)); } catch { }
+                }
+            }
+        }
+        radioDebounce.Change(100, Timeout.Infinite);
+        QuickAfter(300);
+    }
+
+    // -- Mobile hotspot --
+
+    static NetworkOperatorTetheringManager tether = null;
+    static string tetherProfile = null;
+    static DateTime tetherChecked = DateTime.MinValue;
+    static readonly object tetherLock = new object();
+
+    // Looking up the internet profile costs several ms, so on the per-second tick it is only redone
+    // every 10 s (or after an error); forced reads (startup, refresh, commands) always redo it.
+    static NetworkOperatorTetheringManager GetTether(bool fresh)
+    {
+        lock (tetherLock)
+        {
+            try
+            {
+                if (!fresh && tether != null && DateTime.UtcNow - tetherChecked < TimeSpan.FromSeconds(10)) return tether;
+                tetherChecked = DateTime.UtcNow;
+                var p = NetworkInformation.GetInternetConnectionProfile();
+                if (p == null) { tether = null; tetherProfile = null; return null; }
+                string name = p.ProfileName ?? "";
+                if (tether == null || name != tetherProfile)
+                {
+                    tether = null;
+                    tetherProfile = name;
+                    tether = NetworkOperatorTetheringManager.CreateFromConnectionProfile(p);
+                }
+                return tether;
+            }
+            catch { tether = null; tetherProfile = null; return null; }
+        }
+    }
+
+    static bool? ReadHotspot(bool fresh)
+    {
+        var t = GetTether(fresh);
+        if (t == null) return null;
+        try
+        {
+            var s = t.TetheringOperationalState;
+            if (s == TetheringOperationalState.On) return true;
+            if (s == TetheringOperationalState.Off) return false;
+            if (s == TetheringOperationalState.InTransition) { lock (quickLock) { return qHotspot ?? false; } }
+            return null;
+        }
+        catch { lock (tetherLock) { tether = null; } return null; }
+    }
+
+    static void SetHotspot(bool on)
+    {
+        var t = GetTether(true);
+        if (t != null)
+        {
+            try
+            {
+                if (on) Wait(t.StartTetheringAsync());
+                else Wait(t.StopTetheringAsync());
+            }
+            catch { }
+        }
+        QuickAfter(0);
+    }
+
+    // -- Microphone mute (default capture endpoint, eConsole: the "Default Device" for recording) --
+
+    static IAudioEndpointVolume micEndpoint;
+    static readonly MicCallback micCallback = new MicCallback();
+    static Timer micReattach;
+
+    class MicCallback : IAudioEndpointVolumeCallback
+    {
+        public int OnNotify(IntPtr data)
+        {
+            try
+            {
+                bool muted = Marshal.ReadInt32(data, 16) != 0;
+                lock (quickLock) { qMic = muted; }
+                EmitQuick(false);
+            }
+            catch { }
+            return 0;
+        }
+    }
+
+    static void AttachMic()
+    {
+        lock (audioGate)
+        {
+            try
+            {
+                if (micEndpoint != null)
+                {
+                    try { micEndpoint.UnregisterControlChangeNotify(micCallback); } catch { }
+                    try { Marshal.ReleaseComObject(micEndpoint); } catch { }
+                    micEndpoint = null;
+                }
+                if (audioEnum == null) return;
+                IMMDevice device;
+                if (audioEnum.GetDefaultAudioEndpoint(1 /* eCapture */, 0 /* eConsole */, out device) == 0 && device != null)
+                {
+                    var iid = typeof(IAudioEndpointVolume).GUID;
+                    object o;
+                    if (device.Activate(ref iid, 23, IntPtr.Zero, out o) == 0)
+                    {
+                        micEndpoint = (IAudioEndpointVolume)o;
+                        micEndpoint.RegisterControlChangeNotify(micCallback);
+                    }
+                    try { Marshal.ReleaseComObject(device); } catch { }
+                }
+            }
+            catch { micEndpoint = null; }
+        }
+        try
+        {
+            bool? m = ReadMicMute();
+            lock (quickLock) { qMic = m; }
+        }
+        catch { }
+    }
+
+    static bool? ReadMicMute()
+    {
+        lock (audioGate)
+        {
+            try
+            {
+                bool m;
+                if (micEndpoint != null && micEndpoint.GetMute(out m) == 0) return m;
+            }
+            catch { }
+        }
+        return null;
+    }
+
+    // mode: 1 = mute, 0 = unmute, -1 = toggle.
+    static void SetMicMute(int mode)
+    {
+        lock (audioGate)
+        {
+            try
+            {
+                if (micEndpoint == null) return;
+                bool now;
+                if (micEndpoint.GetMute(out now) != 0) return;
+                bool want = mode < 0 ? !now : mode == 1;
+                if (want == now) return;
+                var ctx = Guid.Empty;
+                micEndpoint.SetMute(want, ref ctx);
+            }
+            catch { }
+        }
+    }
+
+    // -- Night light --
+    //
+    // Undocumented: a CloudStore value holding a Bond CompactBinary v1 struct (layout as reverse-engineered
+    // by github.com/kvnxiao/win-nightlight-cli, docs/nightlight-registry-format.md, checked on 26100/26300):
+    //   43 42 01 00 | 0A 02 01 00 | 2A 06 <varint unix seconds> 2A 2B 0E <varint n> <n inner bytes> 00 00 00
+    // The inner struct is 43 42 01 00, then fields in ascending id order, then 00:
+    //   field 0  (10 00)                 present = night light is on now
+    //   field 10 (D0 0A <zigzag varint>)  1 = last change was manual
+    //   field 20 (C6 14 <varint>)         FILETIME of the last on/off change
+    // Windows (Settings, Quick Settings) toggles it by writing only this value with field 0 set or cleared,
+    // field 10 = 1, field 20 = now and the envelope stamped max(now, previous + 2). We do exactly that,
+    // keep any other field, and refuse to write anything we can't fully parse.
+
+    const string NightKey = @"Software\Microsoft\Windows\CurrentVersion\CloudStore\Store\DefaultAccount\Current\default$windows.data.bluelightreduction.bluelightreductionstate\windows.data.bluelightreduction.bluelightreductionstate";
+    static readonly byte[] NightPrefix = { 0x43, 0x42, 0x01, 0x00, 0x0A, 0x02, 0x01, 0x00, 0x2A, 0x06 };
+    static readonly object nightLock = new object();
+
+    class NightField { public int id; public byte[] bytes; }
+
+    static bool ReadVarint(byte[] b, ref int pos, int end, out ulong v)
+    {
+        v = 0;
+        for (int shift = 0; shift < 64 && pos < end; shift += 7)
+        {
+            byte x = b[pos++];
+            v |= (ulong)(x & 0x7F) << shift;
+            if ((x & 0x80) == 0) return true;
+        }
+        return false;
+    }
+
+    static void WriteVarint(List<byte> o, ulong v)
+    {
+        while (v >= 0x80) { o.Add((byte)(v | 0x80)); v >>= 7; }
+        o.Add((byte)v);
+    }
+
+    // Splits the value into the envelope timestamp and the inner fields; false if it isn't the known shape.
+    static bool ParseNight(byte[] d, out ulong stamp, out List<NightField> fields)
+    {
+        stamp = 0;
+        fields = null;
+        if (d == null || d.Length < NightPrefix.Length + 12) return false;
+        for (int i = 0; i < NightPrefix.Length; i++) if (d[i] != NightPrefix[i]) return false;
+        int pos = NightPrefix.Length;
+        if (!ReadVarint(d, ref pos, d.Length, out stamp)) return false;
+        if (pos + 3 > d.Length || d[pos] != 0x2A || d[pos + 1] != 0x2B || d[pos + 2] != 0x0E) return false;
+        pos += 3;
+        ulong n;
+        if (!ReadVarint(d, ref pos, d.Length, out n)) return false;
+        int start = pos;
+        if (n < 5 || (ulong)(d.Length - start) != n + 3) return false;
+        int end = start + (int)n;
+        if (d[end] != 0 || d[end + 1] != 0 || d[end + 2] != 0) return false;
+        if (d[start] != 0x43 || d[start + 1] != 0x42 || d[start + 2] != 0x01 || d[start + 3] != 0x00) return false;
+        if (d[end - 1] != 0) return false;
+        var list = new List<NightField>();
+        pos = start + 4;
+        while (true)
+        {
+            if (pos >= end) return false;
+            int fieldStart = pos;
+            byte h = d[pos++];
+            if (h == 0) break;
+            int type = h & 0x1F;
+            int idBits = h >> 5;
+            int id;
+            if (idBits == 6) { if (pos >= end) return false; id = d[pos++]; }
+            else if (idBits == 7) { if (pos + 1 >= end) return false; id = d[pos] | (d[pos + 1] << 8); pos += 2; }
+            else id = idBits;
+            switch (type)
+            {
+                case 2: case 3: case 14: // bool, uint8, int8: one byte
+                    if (pos >= end) return false;
+                    pos++;
+                    break;
+                case 4: case 5: case 6: case 15: case 16: case 17: // (u)int16/32/64: varint
+                    {
+                        ulong ignore;
+                        if (!ReadVarint(d, ref pos, end, out ignore)) return false;
+                        break;
+                    }
+                default:
+                    return false; // a type we don't know how to skip: don't guess
+            }
+            var f = new NightField();
+            f.id = id;
+            f.bytes = new byte[pos - fieldStart];
+            Array.Copy(d, fieldStart, f.bytes, 0, f.bytes.Length);
+            list.Add(f);
+        }
+        if (pos != end) return false;
+        fields = list;
+        return true;
+    }
+
+    static byte[] ReadNightRaw()
+    {
+        using (var k = Registry.CurrentUser.OpenSubKey(NightKey))
+        {
+            return k == null ? null : k.GetValue("Data") as byte[];
+        }
+    }
+
+    static bool? ReadNightLight()
+    {
+        try
+        {
+            ulong stamp;
+            List<NightField> fields;
+            if (!ParseNight(ReadNightRaw(), out stamp, out fields)) return null;
+            foreach (var f in fields) if (f.id == 0) return true;
+            return false;
+        }
+        catch { return null; }
+    }
+
+    static void SetNightLight(bool on)
+    {
+        lock (nightLock)
+        {
+            try
+            {
+                var data = BuildNight(ReadNightRaw(), on, DateTime.UtcNow);
+                if (data == null) return;
+                using (var k = Registry.CurrentUser.OpenSubKey(NightKey, true))
+                {
+                    if (k != null) k.SetValue("Data", data, RegistryValueKind.Binary);
+                }
+            }
+            catch { }
+        }
+    }
+
+    // The new value for the wanted state, or null when there is nothing to do or the old value isn't understood.
+    static byte[] BuildNight(byte[] old, bool on, DateTime utcNow)
+    {
+        try
+        {
+            ulong stamp;
+            List<NightField> fields;
+            if (!ParseNight(old, out stamp, out fields)) return null;
+            bool now = false;
+            foreach (var f in fields) if (f.id == 0) now = true;
+            if (now == on) return null;
+
+            var keep = new List<NightField>();
+            foreach (var f in fields) if (f.id != 0 && f.id != 10 && f.id != 20) keep.Add(f);
+            if (on) keep.Add(new NightField { id = 0, bytes = new byte[] { 0x10, 0x00 } });
+            keep.Add(new NightField { id = 10, bytes = new byte[] { 0xD0, 0x0A, 0x02 } });
+            var t = new List<byte> { 0xC6, 0x14 };
+            WriteVarint(t, (ulong)utcNow.ToFileTimeUtc());
+            keep.Add(new NightField { id = 20, bytes = t.ToArray() });
+            keep.Sort((a, b) => a.id.CompareTo(b.id));
+
+            var inner = new List<byte> { 0x43, 0x42, 0x01, 0x00 };
+            foreach (var f in keep) inner.AddRange(f.bytes);
+            inner.Add(0x00);
+
+            ulong unixNow = (ulong)Math.Max(0, (utcNow - new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalSeconds);
+            ulong newStamp = Math.Max(unixNow, stamp + 2);
+            var o = new List<byte>(NightPrefix);
+            WriteVarint(o, newStamp);
+            o.Add(0x2A); o.Add(0x2B); o.Add(0x0E);
+            WriteVarint(o, (ulong)inner.Count);
+            o.AddRange(inner);
+            o.Add(0x00); o.Add(0x00); o.Add(0x00);
+            var data = o.ToArray();
+
+            // Self-check before touching the registry: our own output must parse back to the wanted state.
+            ulong s2;
+            List<NightField> f2;
+            if (!ParseNight(data, out s2, out f2)) return null;
+            bool back = false;
+            foreach (var f in f2) if (f.id == 0) back = true;
+            return back == on ? data : null;
+        }
+        catch { return null; }
+    }
+
+    // -- Energy saver (read only: Windows has no public API to switch it) --
+
+    static bool? ReadEnergySaver()
+    {
+        try
+        {
+            var s = PowerManager.EnergySaverStatus;
+            if (s == EnergySaverStatus.On) return true;
+            if (s == EnergySaverStatus.Off) return false;
+        }
+        catch { }
+        return null;
+    }
+
+    // -- Color filters --
+    // State: HKCU\Software\Microsoft\ColorFiltering "Active". The only way to switch it from outside
+    // without restarting anything is its own shortcut (Win+Ctrl+C), which works only when the user
+    // enabled it in Settings > Accessibility > Color filters ("HotkeyEnabled" = 1).
+
+    static int? ReadColorFilterValue(string name)
+    {
+        using (var k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\ColorFiltering"))
+        {
+            if (k == null) return null;
+            object v = k.GetValue(name);
+            if (v is int) return (int)v;
+            return null;
+        }
+    }
+
+    static bool? ReadColorFilters()
+    {
+        try
+        {
+            // Missing key or value: the feature was never used, which means off.
+            int? v = ReadColorFilterValue("Active");
+            return v.HasValue && v.Value != 0;
+        }
+        catch { return null; }
+    }
+
+    // Returns true when the shortcut was sent.
+    static bool ToggleColorFilters(string arg)
+    {
+        try
+        {
+            int? hk = ReadColorFilterValue("HotkeyEnabled");
+            if (!hk.HasValue || hk.Value != 1) return false;
+            if (arg != "toggle")
+            {
+                bool? now = ReadColorFilters();
+                if (now.HasValue && now.Value == (arg == "on")) return false;
+            }
+            SendCombo(new ushort[] { VK_LWIN, VK_LCONTROL, 0x43 /* C */ });
+            return true;
+        }
+        catch { return false; }
+    }
+
+    // -- Shortcuts (SendInput) --
+
+    const ushort VK_LWIN = 0x5B, VK_LCONTROL = 0xA2, VK_LSHIFT = 0xA0;
+
+    static readonly Dictionary<string, ushort[]> Shortcuts = new Dictionary<string, ushort[]>
+    {
+        { "cast", new ushort[] { VK_LWIN, 0x4B } },                       // Win+K
+        { "project", new ushort[] { VK_LWIN, 0x50 } },                    // Win+P
+        { "captions", new ushort[] { VK_LWIN, VK_LCONTROL, 0x4C } },      // Win+Ctrl+L
+        { "keyboard", new ushort[] { VK_LWIN, 0x20 } },                   // Win+Space
+        { "screenshot", new ushort[] { VK_LWIN, VK_LSHIFT, 0x53 } },      // Win+Shift+S
+        { "notifications", new ushort[] { VK_LWIN, 0x4E } },              // Win+N
+        { "quick", new ushort[] { VK_LWIN, 0x41 } },                      // Win+A
+        { "emoji", new ushort[] { VK_LWIN, 0xBE } },                      // Win+Period
+    };
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct MOUSEINPUT { public int dx, dy; public uint mouseData, dwFlags, time; public IntPtr dwExtraInfo; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct KEYBDINPUT { public ushort wVk, wScan; public uint dwFlags, time; public IntPtr dwExtraInfo; }
+
+    [StructLayout(LayoutKind.Explicit)]
+    struct InputUnion { [FieldOffset(0)] public MOUSEINPUT mi; [FieldOffset(0)] public KEYBDINPUT ki; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct INPUT { public uint type; public InputUnion u; }
+
+    [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint count, INPUT[] inputs, int size);
+
+    // Presses the keys in order and releases them in reverse, as one atomic SendInput batch.
+    static void SendCombo(ushort[] vks)
+    {
+        try
+        {
+            var list = new INPUT[vks.Length * 2];
+            for (int i = 0; i < vks.Length; i++)
+            {
+                list[i] = KeyInput(vks[i], false);
+                list[vks.Length * 2 - 1 - i] = KeyInput(vks[i], true);
+            }
+            SendInput((uint)list.Length, list, Marshal.SizeOf(typeof(INPUT)));
+        }
+        catch { }
+    }
+
+    static INPUT KeyInput(ushort vk, bool up)
+    {
+        var inp = new INPUT();
+        inp.type = 1; // INPUT_KEYBOARD
+        inp.u.ki.wVk = vk;
+        uint flags = up ? 2u : 0u; // KEYEVENTF_KEYUP
+        if (vk == VK_LWIN) flags |= 1; // KEYEVENTF_EXTENDEDKEY
+        inp.u.ki.dwFlags = flags;
+        return inp;
+    }
+
+    // -- Output devices --
+
+    static Timer outputsDebounce;
+    static readonly PropertyKey PKEY_Device_FriendlyName = new PropertyKey { fmtid = new Guid("A45C254E-DF1C-4EFD-8020-67D146A850E0"), pid = 14 };
+
+    class OutputDevice { public string id; public string name; }
+
+    static List<OutputDevice> ListOutputs(out string defaultId)
+    {
+        var result = new List<OutputDevice>();
+        defaultId = null;
+        lock (audioGate)
+        {
+            if (audioEnum == null) return result;
+            try
+            {
+                IMMDevice def;
+                // eRender, eMultimedia: the same device the volume control follows.
+                if (audioEnum.GetDefaultAudioEndpoint(0, 1, out def) == 0 && def != null)
+                {
+                    try { string id; if (def.GetId(out id) == 0) defaultId = id; } catch { }
+                    try { Marshal.ReleaseComObject(def); } catch { }
+                }
+            }
+            catch { }
+            IMMDeviceCollection col = null;
+            try
+            {
+                if (audioEnum.EnumAudioEndpoints(0 /* eRender */, 1 /* DEVICE_STATE_ACTIVE */, out col) != 0 || col == null) return result;
+                uint count;
+                if (col.GetCount(out count) != 0) return result;
+                for (uint i = 0; i < count && i < 64; i++)
+                {
+                    IMMDevice dev = null;
+                    try
+                    {
+                        if (col.Item(i, out dev) != 0 || dev == null) continue;
+                        string id;
+                        if (dev.GetId(out id) != 0 || string.IsNullOrEmpty(id)) continue;
+                        var od = new OutputDevice();
+                        od.id = id;
+                        od.name = FriendlyName(dev) ?? id;
+                        result.Add(od);
+                    }
+                    catch { }
+                    finally { if (dev != null) try { Marshal.ReleaseComObject(dev); } catch { } }
+                }
+            }
+            catch { }
+            finally { if (col != null) try { Marshal.ReleaseComObject(col); } catch { } }
+        }
+        return result;
+    }
+
+    static string FriendlyName(IMMDevice dev)
+    {
+        IPropertyStore store = null;
+        try
+        {
+            if (dev.OpenPropertyStore(0 /* STGM_READ */, out store) != 0 || store == null) return null;
+            var key = PKEY_Device_FriendlyName;
+            PropVariant pv;
+            if (store.GetValue(ref key, out pv) != 0) return null;
+            try
+            {
+                return pv.vt == 31 /* VT_LPWSTR */ && pv.p != IntPtr.Zero ? Marshal.PtrToStringUni(pv.p) : null;
+            }
+            finally { try { PropVariantClear(ref pv); } catch { } }
+        }
+        catch { return null; }
+        finally { if (store != null) try { Marshal.ReleaseComObject(store); } catch { } }
+    }
+
+    static void EmitOutputs()
+    {
+        try
+        {
+            string def;
+            var list = ListOutputs(out def);
+            var sb = new StringBuilder();
+            sb.Append("{\"type\":\"outputs\",\"devices\":[");
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append("{\"id\":\"").Append(Escape(list[i].id)).Append("\",\"name\":\"").Append(Escape(list[i].name))
+                  .Append("\",\"default\":").Append(list[i].id == def ? "true" : "false").Append('}');
+            }
+            sb.Append("]}");
+            Write(sb.ToString());
+        }
+        catch { }
+    }
+
+    static void SetDefaultOutput(string id)
+    {
+        try
+        {
+            string def;
+            bool known = false;
+            foreach (var d in ListOutputs(out def)) if (d.id == id) known = true;
+            if (!known) return;
+            object o = null;
+            try
+            {
+                o = new PolicyConfigClient();
+                var pc = (IPolicyConfig)o;
+                pc.SetDefaultEndpoint(id, 0); // eConsole
+                pc.SetDefaultEndpoint(id, 1); // eMultimedia
+                pc.SetDefaultEndpoint(id, 2); // eCommunications
+            }
+            finally { if (o != null) try { Marshal.ReleaseComObject(o); } catch { } }
+        }
+        catch { }
     }
 
     static void Write(string json)

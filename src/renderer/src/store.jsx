@@ -16,6 +16,8 @@ const EMPTY = {
     audio: { available: false },
     brightness: { available: false },
     radios: { wifi: null, bluetooth: null },
+    quick: {},
+    outputs: [],
     keepAwake: false
   }
 }

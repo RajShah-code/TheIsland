@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { app, globalShortcut, ipcMain } from 'electron'
+import { app, globalShortcut, ipcMain, shell } from 'electron'
 import { installRelayFile } from '../shared/hooks-installer.mjs'
 import { createClaudeHub } from './claude'
 import { startCalendar } from './calendar'
@@ -49,6 +49,25 @@ function setStartWithWindows(on) {
 }
 
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
+
+// Windows Settings pages the System tab may open ("open <name>"). Nothing else reaches openExternal.
+const SETTINGS_PAGES = {
+  accessibility: 'ms-settings:easeofaccess',
+  nearby: 'ms-settings:crossdevice',
+  focus: 'ms-settings:quiethours',
+  energy: 'ms-settings:batterysaver',
+  nightlight: 'ms-settings:nightlight',
+  display: 'ms-settings:display',
+  sound: 'ms-settings:sound',
+  network: 'ms-settings:network',
+  bluetooth: 'ms-settings:bluetooth',
+  settings: 'ms-settings:'
+}
+
+function openSettingsPage(name) {
+  if (typeof name !== 'string' || !Object.hasOwn(SETTINGS_PAGES, name)) return
+  shell.openExternal(SETTINGS_PAGES[name]).catch((e) => log('could not open', name, e.message))
+}
 
 function start() {
   log('starting')
@@ -178,7 +197,10 @@ function start() {
     if (fromIsland(e)) media.command(cmd)
   })
   ipcMain.on('island:system', (e, cmd, value) => {
-    if (fromIsland(e) && typeof cmd === 'string') media.system.command(cmd, value)
+    if (!fromIsland(e) || typeof cmd !== 'string') return
+    // Settings pages open here (only the whitelisted ones); everything else goes to the helper.
+    if (cmd === 'open') return openSettingsPage(value)
+    media.system.command(cmd, value)
   })
   ipcMain.on('island:system-watch', (e, on) => {
     if (!fromIsland(e)) return
