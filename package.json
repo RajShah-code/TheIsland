@@ -1,0 +1,33 @@
+{
+  "name": "theisland",
+  "productName": "TheIsland",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A light dynamic-island overlay for Windows 11: Claude Code status and approvals, music, calendar and clock.",
+  "main": "out/main/index.js",
+  "author": "Raj Shah",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "node scripts/build-helper.mjs && electron-vite dev",
+    "build": "node scripts/build-helper.mjs && electron-vite build",
+    "start": "npm run build && electron .",
+    "build:helper": "node scripts/build-helper.mjs --force",
+    "hooks:diff": "node scripts/hooks.mjs diff",
+    "hooks:install": "node scripts/hooks.mjs install",
+    "hooks:uninstall": "node scripts/hooks.mjs uninstall",
+    "hooks:status": "node scripts/hooks.mjs status"
+  },
+  "dependencies": {
+    "ical.js": "2.2.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "44.9.3",
+    "electron-vite": "6.0.0",
+    "tailwindcss": "4.3.3",
+    "vite": "8.3.5"
+  }
+}

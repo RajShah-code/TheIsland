@@ -1,0 +1,63 @@
+# TheIsland
+
+A small "dynamic island" for Windows 11. It's a black pill at the top centre of the screen that shows:
+
+- **Claude Code**: your live sessions (working / needs you / done), and Allow / Deny buttons for permission prompts.
+- **Music**: what's playing in Spotify (or any app Windows can see), with play/pause, next and previous. No API key needed.
+- **Calendar**: your next events, read from your Google Calendar's secret iCal link.
+- **Clock**: 12-hour time.
+
+Hover the pill to expand it. It also expands by itself when Claude Code needs an approval.
+
+## Run it
+
+Needs Node.js 24 on Windows 11.
+
+```bash
+npm install
+npm start
+```
+
+`npm start` builds the app and runs it. For development with hot reload, use `npm run dev`.
+The tray icon (a small white pill) has the menu: approvals on/off, install/remove hooks, calendar, quit.
+
+## Connect Claude Code
+
+TheIsland gets Claude Code events through hooks in `%USERPROFILE%\.claude\settings.json`.
+
+```bash
+npm run hooks:diff        # show what would change, write nothing
+npm run hooks:install     # show the diff, ask, back up the file, then install
+npm run hooks:uninstall   # remove only TheIsland's entries
+```
+
+You can also use **Install Claude Code hooks...** in the tray menu. The installer:
+
+- refuses to touch the file if it can't parse it,
+- saves a timestamped backup (`settings.json.theisland-backup-...`) first,
+- only adds or removes entries that point at `theisland-relay.cjs`, and keeps all your other settings and hooks.
+
+When TheIsland isn't running, the hooks exit right away and Claude Code works as normal.
+If you don't answer an approval in the island within 2 minutes, or press **Answer in terminal**, the normal terminal prompt appears.
+There is no "Always allow": each Allow covers only the one request shown.
+
+## Set up the calendar
+
+1. In Google Calendar on the web, open **Settings**, pick your calendar, and copy **Secret address in iCal format**.
+2. In the tray menu, choose **Set calendar from copied iCal address**.
+
+The address is stored encrypted with Windows DPAPI in `%APPDATA%\TheIsland\config.json`, and the clipboard is cleared afterwards. The calendar refreshes every 15 minutes.
+
+## Footprint
+
+Measured on 2026-10-21 (Electron 44, software rendering):
+
+| State | Private memory | CPU |
+| --- | --- | --- |
+| Idle | about 117 MB | under 1% of one core |
+| A Claude session working | about 119 MB | about 6% of one core |
+
+## Files and privacy
+
+Everything lives in `%APPDATA%\TheIsland`: `config.json`, `relay.json` (port and token, deleted on quit), `theisland-relay.cjs` (the hook script), and a small `island.log` (capped at 256 KB, no prompt text, commands or URLs).
+No telemetry. The only network calls are to your calendar URL.
