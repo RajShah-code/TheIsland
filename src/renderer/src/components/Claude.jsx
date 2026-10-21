@@ -1,5 +1,6 @@
 // Claude Code status and approvals (core of the island, not a widget).
 import { useEffect, useState } from 'react'
+import { Buddy, buddyReact } from './Buddy'
 
 // Blinks the "working" dot once a second with a timer instead of a CSS animation: a running CSS
 // animation makes Chromium repaint the transparent overlay every frame (measured: ~50% of a core).
@@ -34,13 +35,13 @@ export function mostRelevant(sessions) {
 }
 
 // Collapsed pill: the session that matters most right now.
-export function ClaudeCompact({ sessions }) {
+export function ClaudeCompact({ sessions, active }) {
   const s = mostRelevant(sessions)
   if (!s) return null
   const more = sessions.length - 1
   return (
     <span className="flex min-w-0 items-center gap-1.5 text-[12px]">
-      <Dot state={s.state} />
+      <Buddy mood={s.state} tool={s.tool} beat={s.updatedAt} cell={1.5} active={active} />
       <span className="max-w-[110px] truncate text-white/85">{s.project}</span>
       {s.state === 'working' && s.tool && <span className="max-w-[80px] truncate text-white/45">{s.tool}</span>}
       {s.state !== 'working' && <span className="text-white/45">{STATE[s.state]?.label}</span>}
@@ -49,25 +50,29 @@ export function ClaudeCompact({ sessions }) {
   )
 }
 
-export function ClaudePanel({ sessions }) {
+export function ClaudePanel({ sessions, active }) {
   if (sessions.length === 0) {
     return <p className="text-xs text-white/45">No Claude Code sessions right now</p>
   }
+  const top = mostRelevant(sessions)
   return (
-    <div className="space-y-1">
-      {sessions.map((s) => (
-        <div key={s.id} className={`flex items-center gap-2 text-xs ${s.state === 'stale' ? 'opacity-50' : ''}`}>
-          <Dot state={s.state} />
-          <span className="max-w-[150px] shrink-0 truncate font-medium">{s.title || s.project}</span>
-          <span className="shrink-0 text-white/45">{STATE[s.state]?.label}</span>
-          {s.state === 'working' && (
-            <span className="min-w-0 truncate font-mono text-[11px] text-white/40">
-              {s.tool}
-              {s.hint ? ': ' + s.hint : ''}
-            </span>
-          )}
-        </div>
-      ))}
+    <div className="flex items-start gap-3">
+      <Buddy mood={top.state} tool={top.tool} beat={top.updatedAt} cell={2.5} active={active} follow />
+      <div className="min-w-0 flex-1 space-y-1 pt-2">
+        {sessions.map((s) => (
+          <div key={s.id} className={`flex items-center gap-2 text-xs ${s.state === 'stale' ? 'opacity-50' : ''}`}>
+            <Dot state={s.state} />
+            <span className="max-w-[150px] shrink-0 truncate font-medium">{s.title || s.project}</span>
+            <span className="shrink-0 text-white/45">{STATE[s.state]?.label}</span>
+            {s.state === 'working' && (
+              <span className="min-w-0 truncate font-mono text-[11px] text-white/40">
+                {s.tool}
+                {s.hint ? ': ' + s.hint : ''}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -126,13 +131,16 @@ function useSecondsLeft(until) {
   return Math.max(0, Math.round((until - now) / 1000))
 }
 
-export function ApprovalCard({ approval, queued }) {
+export function ApprovalCard({ approval, queued, active }) {
   const left = useSecondsLeft(approval.expiresAt)
-  const decide = (d) => window.island.decide(approval.id, d)
+  const decide = (d) => {
+    if (d) buddyReact(d)
+    window.island.decide(approval.id, d)
+  }
   return (
     <div className="space-y-2 rounded-2xl bg-white/[0.06] p-3 ring-1 ring-rose-500/40">
       <div className="flex items-center gap-2 text-xs">
-        <Dot state="waiting" />
+        <Buddy mood="waiting" cell={2} active={active} />
         <span className="font-semibold">{approval.project}</span>
         <span className="text-white/50">wants to use</span>
         <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px]">{approval.tool}</span>

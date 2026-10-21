@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Buddy } from './components/Buddy'
 import { ApprovalCard, ClaudeCompact, ClaudePanel, Dot, mostRelevant } from './components/Claude'
 import { useIsland } from './store'
 import { widgets } from './widgets'
@@ -159,7 +160,7 @@ export default function App() {
         <div className="notch-ear right" />
         <div className="notch-body">
           <div className="layer" data-on={!expanded} style={{ width: size.w, height: CLOSED.h }}>
-            <Closed state={state} notice={notice} />
+            <Closed state={state} notice={notice} active={!expanded} />
           </div>
           <div ref={openRef} className="layer open" data-on={expanded} style={{ width: openWidth }}>
             <Open
@@ -170,6 +171,7 @@ export default function App() {
               approvals={approvals}
               widgets={homeWidgets}
               settings={settings}
+              active={expanded}
             />
           </div>
         </div>
@@ -179,19 +181,19 @@ export default function App() {
 }
 
 // Closed notch: empty when nothing is happening; small live indicators on the sides otherwise.
-function Closed({ state, notice }) {
+function Closed({ state, notice, active }) {
   const left = widgets.map((w) => w.Compact && <w.Compact key={w.id} />)
   return (
     <div className="flex h-full items-center justify-between gap-3 px-3.5 text-[12px] whitespace-nowrap">
       <span className="flex min-w-0 items-center gap-2">{left}</span>
       {notice ? (
         <span className="flex min-w-0 items-center gap-1.5">
-          <Dot state={notice.kind === 'done' ? 'done' : 'waiting'} />
+          <Buddy mood={notice.kind === 'done' ? 'done' : 'waiting'} cell={1.5} active={active} />
           <span className="max-w-[150px] truncate">{notice.project}</span>
           <span className="text-white/55">{notice.kind === 'done' ? 'finished' : 'needs you'}</span>
         </span>
       ) : (
-        <ClaudeCompact sessions={state.claude.sessions} />
+        <ClaudeCompact sessions={state.claude.sessions} active={active} />
       )}
     </div>
   )
@@ -210,7 +212,7 @@ function Tab({ active, onClick, children }) {
   )
 }
 
-function Open({ state, tab, setTab, hasClaude, approvals, widgets, settings }) {
+function Open({ state, tab, setTab, hasClaude, approvals, widgets, settings, active }) {
   const top = mostRelevant(state.claude.sessions)
   return (
     <div className="px-5 pt-2.5 pb-4">
@@ -230,9 +232,9 @@ function Open({ state, tab, setTab, hasClaude, approvals, widgets, settings }) {
       </div>
       {tab === 'claude' ? (
         approvals.length > 0 ? (
-          <ApprovalCard key={approvals[0].id} approval={approvals[0]} queued={approvals.length - 1} />
+          <ApprovalCard key={approvals[0].id} approval={approvals[0]} queued={approvals.length - 1} active={active} />
         ) : (
-          <ClaudePanel sessions={state.claude.sessions} />
+          <ClaudePanel sessions={state.claude.sessions} active={active} />
         )
       ) : (
         <div className="flex items-stretch">
