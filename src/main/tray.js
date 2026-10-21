@@ -1,5 +1,5 @@
-// Tray menu: the only "settings" in v1. Approvals switch, hook install/remove (with the diff shown
-// first), calendar URL, quit.
+// Tray menu: the only "settings" in v1. Hide switch, approvals switch, hook install/remove (with the
+// diff shown first), calendar URL, quit.
 import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { app, clipboard, dialog, Menu, nativeImage, Tray } from 'electron'
@@ -48,7 +48,7 @@ function shortDiff(diff) {
   return lines.filter((_, i) => keep.has(i)).join('\n')
 }
 
-export function createTray({ onConfigChanged, onCalendarChanged }) {
+export function createTray({ onConfigChanged, onCalendarChanged, isHidden, onToggleHidden, hideShortcut }) {
   const tray = new Tray(trayIcon())
   tray.setToolTip('TheIsland')
 
@@ -141,6 +141,15 @@ export function createTray({ onConfigChanged, onCalendarChanged }) {
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: 'TheIsland', enabled: false },
+        { type: 'separator' },
+        {
+          label: 'Hide the island',
+          type: 'checkbox',
+          checked: isHidden(),
+          accelerator: hideShortcut,
+          registerAccelerator: false,
+          click: onToggleHidden
+        },
         { type: 'separator' },
         {
           label: 'Answer Claude Code approvals in the island',

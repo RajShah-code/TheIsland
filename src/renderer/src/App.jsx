@@ -16,19 +16,24 @@ const CLAUDE_W = 600
 // Fullscreen: reveal when the pointer touches the top edge near the centre, hide again after this.
 const PEEK_ZONE = 180
 const PEEK_HIDE_MS = 2500
-// Short delay so sweeping the pointer across the top of the screen doesn't pop the island open.
-const HOVER_INTENT_MS = 90
+// The closed pill never takes clicks: hovering it only makes it see-through so whatever is under it
+// stays visible and clickable. Pushing the pointer into the top edge (this many px) over it opens it.
+const EDGE = 2
 
 export default function App() {
   const state = useIsland()
   const { claude, settings, fullscreen } = state
   const [hover, setHover] = useState(false)
+  const [ghost, setGhost] = useState(false)
   const [peek, setPeek] = useState(false)
   const [notice, setNotice] = useState(null)
   const [tab, setTab] = useState('home')
   const [openSize, setOpenSize] = useState({ w: 600, h: 180 })
   const openRef = useRef(null)
+  const notchRef = useRef(null)
   const timers = useRef({})
+  const interactive = useRef(false)
+  const now = useRef({})
 
   const approvals = claude.approvals
   const hasClaude = claude.sessions.length > 0
@@ -36,6 +41,7 @@ export default function App() {
   const hidden = fullscreen && !peek && !expanded
   const activeTab = approvals.length > 0 ? 'claude' : tab === 'claude' && !hasClaude ? 'home' : tab
   const homeWidgets = widgets.filter((w) => w.Panel && (!w.visible || w.visible(state)))
+  now.current = { fullscreen, expanded, hidden }
 
   // Brief message in the notch when a session finishes or needs input.
   useEffect(
@@ -52,16 +58,37 @@ export default function App() {
 
   // Fullscreen app in front: the notch hides; touching the top edge near the centre brings it back.
   useEffect(() => {
-    if (!fullscreen) {
-      setPeek(false)
-      return
-    }
+    if (!fullscreen) setPeek(false)
+  }, [fullscreen])
+
+  // The window ignores the mouse (moves are still forwarded here) unless the island is open and the
+  // pointer is on it, so everything below the pill stays clickable.
+  useEffect(() => {
     const onMove = (e) => {
-      if (e.clientY <= 2 && Math.abs(e.clientX - window.innerWidth / 2) < PEEK_ZONE) reveal()
+      const { fullscreen, expanded, hidden } = now.current
+      const r = notchRef.current.getBoundingClientRect()
+      const overX = e.clientX >= r.left && e.clientX <= r.right
+      const inside = overX && e.clientY >= r.top && e.clientY <= r.bottom
+      const atEdge = e.clientY <= EDGE
+      if (fullscreen && atEdge && Math.abs(e.clientX - window.innerWidth / 2) < PEEK_ZONE) reveal()
+      if (expanded) {
+        if (inside) {
+          cancelLeave()
+          setInteractive(true)
+        } else if (interactive.current) leave()
+        return
+      }
+      if (atEdge && overX) return open()
+      setGhost(!hidden && inside)
     }
     document.addEventListener('mousemove', onMove)
     return () => document.removeEventListener('mousemove', onMove)
-  }, [fullscreen])
+  }, [])
+
+  // Closing (an approval answered, the hover timer) hands the mouse back at once.
+  useEffect(() => {
+    if (!expanded) setInteractive(false)
+  }, [expanded])
 
   function reveal() {
     setPeek(true)
@@ -78,19 +105,34 @@ export default function App() {
     return () => ro.disconnect()
   }, [])
 
-  // The window lets clicks through except over the notch itself.
-  const enter = () => {
+  function setInteractive(on) {
+    if (interactive.current === on) return
+    interactive.current = on
+    window.island.setInteractive(on)
+  }
+  function cancelLeave() {
     clearTimeout(timers.current.leave)
+    timers.current.leave = null
     clearTimeout(timers.current.peek)
-    window.island.setInteractive(true)
-    timers.current.intent = setTimeout(() => setHover(true), HOVER_INTENT_MS)
   }
-  const leave = () => {
-    clearTimeout(timers.current.intent)
-    window.island.setInteractive(false)
-    timers.current.leave = setTimeout(() => setHover(false), 220)
-    if (fullscreen) timers.current.peek = setTimeout(() => setPeek(false), PEEK_HIDE_MS)
+  function open() {
+    cancelLeave()
+    setGhost(false)
+    setInteractive(true)
+    setHover(true)
   }
+  function leave() {
+    setInteractive(false)
+    setGhost(false)
+    if (!timers.current.leave)
+      timers.current.leave = setTimeout(() => {
+        timers.current.leave = null
+        setHover(false)
+      }, 220)
+    if (now.current.fullscreen) timers.current.peek = setTimeout(() => setPeek(false), PEEK_HIDE_MS)
+  }
+  // Backup for a fast move that leaves the window between two mousemove events.
+  const onMouseLeave = () => (interactive.current ? leave() : setGhost(false))
 
   const live = !!notice || hasClaude || (state.media.active && state.media.status === 'Playing')
   const size = expanded
@@ -105,11 +147,12 @@ export default function App() {
   return (
     <div className="h-full font-sans text-white">
       <div
+        ref={notchRef}
         className="notch"
         data-open={expanded}
         data-hidden={hidden}
-        onMouseEnter={enter}
-        onMouseLeave={leave}
+        data-ghost={ghost && !expanded}
+        onMouseLeave={onMouseLeave}
         style={{ width: size.w, height: size.h, '--radius': size.r + 'px', '--ear': size.ear + 'px' }}
       >
         <div className="notch-ear left" />

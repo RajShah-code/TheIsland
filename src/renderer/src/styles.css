@@ -47,7 +47,8 @@ body,
     height 520ms var(--open),
     --radius 520ms var(--open),
     --ear 520ms var(--open),
-    transform 380ms var(--close);
+    transform 380ms var(--close),
+    opacity 140ms ease-out;
 }
 .notch[data-open='false'] {
   transition:
@@ -55,10 +56,15 @@ body,
     height 340ms var(--close),
     --radius 340ms var(--close),
     --ear 340ms var(--close),
-    transform 380ms var(--close);
+    transform 380ms var(--close),
+    opacity 140ms ease-out;
 }
 .notch[data-hidden='true'] {
   transform: translateY(calc(-100% - 2px));
+}
+/* Pointer over the closed pill: fade it so what's under it can be seen (the click goes through). */
+.notch[data-ghost='true'] {
+  opacity: 0.15;
 }
 
 .notch-body {

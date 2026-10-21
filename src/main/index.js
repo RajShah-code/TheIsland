@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { app, ipcMain } from 'electron'
+import { app, globalShortcut, ipcMain } from 'electron'
 import { installRelayFile } from '../shared/hooks-installer.mjs'
 import { createClaudeHub } from './claude'
 import { startCalendar } from './calendar'
@@ -21,11 +21,28 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(start)
 }
 
+// Hides the whole island until pressed again (also in the tray menu).
+const HIDE_SHORTCUT = 'Control+Alt+I'
+
 function start() {
   log('starting')
   let win = null
+  let hidden = false
+  let tray = null
   const send = (channel, data) => {
     if (win && !win.isDestroyed()) win.webContents.send(channel, data)
+  }
+  const setHidden = (on) => {
+    hidden = on
+    if (win && !win.isDestroyed()) {
+      if (on) win.hide()
+      else {
+        win.showInactive()
+        win.setAlwaysOnTop(true, 'screen-saver')
+      }
+    }
+    log(on ? 'island hidden' : 'island shown')
+    tray?.refresh()
   }
 
   // Keep the copy the hooks run up to date with this version of the relay.
@@ -39,6 +56,8 @@ function start() {
     getConfig,
     onChange: (snap) => send('island:claude', snap),
     onAttention: (a) => {
+      // An approval needs an answer, so it brings a hidden island back.
+      if (hidden && a.kind === 'approval') setHidden(false)
       if (win && !win.isDestroyed()) win.setAlwaysOnTop(true, 'screen-saver')
       send('island:attention', a)
     }
@@ -53,15 +72,20 @@ function start() {
     onChange: (c) => send('island:calendar', c)
   })
   const settings = () => ({ approvalsEnabled: getConfig().approvalsEnabled })
-  const tray = createTray({
+  tray = createTray({
     onConfigChanged: () => {
       if (!getConfig().approvalsEnabled) hub.releaseAll()
       send('island:settings', settings())
     },
-    onCalendarChanged: () => calendar.refresh()
+    onCalendarChanged: () => calendar.refresh(),
+    isHidden: () => hidden,
+    onToggleHidden: () => setHidden(!hidden),
+    hideShortcut: HIDE_SHORTCUT
   })
 
   win = createIslandWindow()
+  if (!globalShortcut.register(HIDE_SHORTCUT, () => setHidden(!hidden)))
+    log('could not register', HIDE_SHORTCUT, '(another app has it)')
   const fromIsland = (e) => win && !win.isDestroyed() && e.sender === win.webContents
 
   ipcMain.handle('island:state', (e) =>
@@ -86,6 +110,7 @@ function start() {
   })
 
   app.on('before-quit', () => {
+    globalShortcut.unregisterAll()
     hub.releaseAll()
     server.close()
     media.stop()

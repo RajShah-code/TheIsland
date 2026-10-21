@@ -1,7 +1,7 @@
 // The island window: one frameless, transparent, always-on-top window touching the top edge of the
 // primary display, centred. It is sized for the expanded island; the renderer draws the notch, and the
-// rest of the window lets clicks through (setIgnoreMouseEvents with forward, toggled by the
-// renderer when the pointer enters/leaves the pill). focusable:false means it never steals focus.
+// rest of the window lets clicks through (setIgnoreMouseEvents with forward, turned off by the
+// renderer only while the island is open and the pointer is on it). focusable:false: no focus steal.
 import path from 'node:path'
 import { app, BrowserWindow, screen, shell } from 'electron'
 
