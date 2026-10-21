@@ -80,6 +80,16 @@ function toolHint(name, ti) {
   return clip(s.replace(/\s+/g, ' '), 120)
 }
 
+// A short one-line label (subagent description, agent type). Never the prompt.
+function label(s, n = 60) {
+  if (typeof s !== 'string') return undefined
+  const t = s.replace(/\s+/g, ' ').trim()
+  return t.length > n ? t.slice(0, n - 3) + '...' : t
+}
+
+// The tool that spawns subagents: "Agent" now, "Task" in older Claude Code versions.
+const isAgentTool = (name) => name === 'Agent' || name === 'Task'
+
 // Keep only what the island shows. Prompt text and tool output are dropped here.
 function trim(e) {
   const ev = e.hook_event_name
@@ -89,7 +99,9 @@ function trim(e) {
     session_id: e.session_id,
     cwd: e.cwd,
     permission_mode: e.permission_mode,
+    // Set when the hook fired inside a subagent (or on SubagentStart/SubagentStop).
     agent_id: e.agent_id,
+    agent_type: label(e.agent_type),
     // The process that ran this hook: Claude Code. Lets the app notice when it's gone.
     pid: process.ppid
   }
@@ -101,7 +113,20 @@ function trim(e) {
     out.session_title = e.session_title
   } else if (ev === 'PreToolUse' || ev === 'PostToolUse') {
     out.tool_name = e.tool_name
+    out.tool_use_id = e.tool_use_id
     out.hint = toolHint(e.tool_name, e.tool_input)
+    if (isAgentTool(e.tool_name)) {
+      // Subagent launch: only the short label and type, never tool_input.prompt.
+      const ti = e.tool_input && typeof e.tool_input === 'object' ? e.tool_input : {}
+      out.hint = label(ti.description) || ''
+      out.subagent = { description: label(ti.description), type: label(ti.subagent_type), background: ti.run_in_background === true }
+      if (ev === 'PostToolUse') {
+        // "completed" (foreground finished) or "async_launched" (now in the background). No content.
+        const r = e.tool_response && typeof e.tool_response === 'object' ? e.tool_response : {}
+        out.subagent.status = typeof r.status === 'string' ? r.status : undefined
+        out.subagent.agent_id = typeof r.agentId === 'string' ? r.agentId : undefined
+      }
+    }
   } else if (ev === 'PermissionRequest') {
     out.tool_name = e.tool_name
     out.tool_input = clipObject(e.tool_input)

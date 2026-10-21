@@ -7,6 +7,7 @@ import {
   applyPlan,
   installRelayFile,
   isInstalled,
+  isUpToDate,
   planInstall,
   planUninstall,
   relayInstallPath
@@ -147,6 +148,8 @@ export function createTray({
             onConfigChanged()
           }
         },
+        // An older install misses newer events; installing again shows the diff and adds them.
+        ...(installed && !isUpToDate() ? [{ label: 'Update Claude Code hooks...', click: installHooks }] : []),
         installed
           ? { label: 'Remove Claude Code hooks...', click: removeHooks }
           : { label: 'Install Claude Code hooks...', click: installHooks },

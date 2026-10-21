@@ -24,6 +24,8 @@ export const EVENTS = [
   { name: 'PreToolUse', async: true, timeout: 5 },
   { name: 'PostToolUse', async: true, timeout: 5 },
   { name: 'Notification', async: true, timeout: 5 },
+  { name: 'SubagentStart', async: true, timeout: 5 },
+  { name: 'SubagentStop', async: true, timeout: 5 },
   { name: 'Stop', async: true, timeout: 5 },
   { name: 'SessionEnd', async: true, timeout: 5 },
   { name: 'PermissionRequest', async: false, timeout: 300 }
@@ -158,6 +160,20 @@ export function isInstalled(settingsPath = defaultSettingsPath()) {
     const { data } = readSettings(settingsPath)
     return Object.values(data.hooks || {}).some((groups) =>
       groups.some((g) => Array.isArray(g.hooks) && g.hooks.some(isOurHandler))
+    )
+  } catch {
+    return false
+  }
+}
+
+// True when every event in EVENTS has our handler. An install from an older version can miss some
+// (SubagentStart and SubagentStop were added later); installing again adds them.
+export function isUpToDate(settingsPath = defaultSettingsPath()) {
+  try {
+    const { data } = readSettings(settingsPath)
+    const hooks = data.hooks || {}
+    return EVENTS.every((ev) =>
+      (hooks[ev.name] || []).some((g) => Array.isArray(g.hooks) && g.hooks.some(isOurHandler))
     )
   } catch {
     return false

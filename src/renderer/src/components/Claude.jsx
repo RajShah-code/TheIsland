@@ -38,6 +38,56 @@ export function Mascot({ mood, ...props }) {
   return useBuddyOn() ? <Buddy mood={mood} {...props} /> : <Dot state={mood} />
 }
 
+// ---- Subagents ----
+
+export function runningAgents(s) {
+  return s?.agents ? s.agents.filter((a) => a.state === 'running').length : 0
+}
+
+function elapsed(ms) {
+  const sec = Math.max(0, Math.floor(ms / 1000))
+  if (sec < 60) return sec + 's'
+  const m = Math.floor(sec / 60)
+  if (m < 60) return `${m}m ${String(sec % 60).padStart(2, '0')}s`
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`
+}
+
+function Check() {
+  return (
+    <svg width="8" height="8" viewBox="0 0 8 8" className="shrink-0" aria-hidden="true">
+      <path d="M1 4.2 3.2 6.3 7 1.8" fill="none" stroke="#34d399" strokeWidth="1.6" />
+    </svg>
+  )
+}
+
+// One line per subagent under its session. `lit` and `now` come from the panel's render, which the
+// blink timer repeats once a second while a subagent runs.
+function AgentRow({ a, lit, now }) {
+  const running = a.state === 'running'
+  return (
+    <div className={`flex items-center gap-2 text-[11px] ${running ? '' : 'opacity-60'}`}>
+      <span className="flex w-2 shrink-0 justify-center">
+        {running ? (
+          <span className={`inline-block h-1.5 w-1.5 rounded-full bg-amber-400 ${lit ? '' : 'opacity-35'}`} />
+        ) : (
+          <Check />
+        )}
+      </span>
+      <span className="max-w-[170px] shrink-0 truncate text-white/80">{a.description}</span>
+      {a.type && <span className="max-w-[90px] shrink-0 truncate text-white/40">{a.type}</span>}
+      {running && a.currentTool && (
+        <span className="min-w-0 truncate font-mono text-[10px] text-white/35">
+          {a.currentTool}
+          {a.hint ? ': ' + a.hint : ''}
+        </span>
+      )}
+      <span className="ml-auto shrink-0 pl-1 text-white/35 tabular-nums">
+        {elapsed((running ? now : a.endedAt) - a.startedAt)}
+      </span>
+    </div>
+  )
+}
+
 const PRIORITY = { waiting: 0, working: 1, done: 2, idle: 3, stale: 4 }
 
 export function mostRelevant(sessions) {
@@ -49,11 +99,16 @@ export function ClaudeCompact({ sessions, active }) {
   const s = mostRelevant(sessions)
   if (!s) return null
   const more = sessions.length - 1
+  const agents = runningAgents(s)
   return (
     <span className="flex min-w-0 items-center gap-1.5 text-[12px]">
       <Mascot mood={s.state} tool={s.tool} beat={s.updatedAt} cell={1.5} active={active} />
       <span className="max-w-[110px] truncate text-white/85">{s.project}</span>
-      {s.state === 'working' && s.tool && <span className="max-w-[80px] truncate text-white/45">{s.tool}</span>}
+      {agents > 0 ? (
+        <span className="shrink-0 text-white/45">{agents === 1 ? '1 agent' : `${agents} agents`}</span>
+      ) : (
+        s.state === 'working' && s.tool && <span className="max-w-[80px] truncate text-white/45">{s.tool}</span>
+      )}
       {s.state !== 'working' && <span className="text-white/45">{STATE[s.state]?.label}</span>}
       {more > 0 && <span className="text-white/40">+{more}</span>}
     </span>
@@ -62,6 +117,10 @@ export function ClaudeCompact({ sessions, active }) {
 
 export function ClaudePanel({ sessions, active }) {
   const buddy = useBuddyOn()
+  // One blink timer for every subagent row, only while one is running and the panel is shown. Each
+  // toggle re-renders the panel, which also moves the elapsed times on.
+  const lit = useBlink(active && sessions.some((s) => runningAgents(s) > 0))
+  const now = Date.now()
   if (sessions.length === 0) {
     return <p className="text-xs text-white/45">No Claude Code sessions right now</p>
   }
@@ -71,15 +130,24 @@ export function ClaudePanel({ sessions, active }) {
       {buddy && <Buddy mood={top.state} tool={top.tool} beat={top.updatedAt} cell={2.5} active={active} follow />}
       <div className={`min-w-0 flex-1 space-y-1 ${buddy ? 'pt-2' : ''}`}>
         {sessions.map((s) => (
-          <div key={s.id} className={`flex items-center gap-2 text-xs ${s.state === 'stale' ? 'opacity-50' : ''}`}>
-            <Dot state={s.state} />
-            <span className="max-w-[150px] shrink-0 truncate font-medium">{s.title || s.project}</span>
-            <span className="shrink-0 text-white/45">{STATE[s.state]?.label}</span>
-            {s.state === 'working' && (
-              <span className="min-w-0 truncate font-mono text-[11px] text-white/40">
-                {s.tool}
-                {s.hint ? ': ' + s.hint : ''}
-              </span>
+          <div key={s.id} className={s.state === 'stale' ? 'opacity-50' : ''}>
+            <div className="flex items-center gap-2 text-xs">
+              <Dot state={s.state} />
+              <span className="max-w-[150px] shrink-0 truncate font-medium">{s.title || s.project}</span>
+              <span className="shrink-0 text-white/45">{STATE[s.state]?.label}</span>
+              {s.state === 'working' && (
+                <span className="min-w-0 truncate font-mono text-[11px] text-white/40">
+                  {s.tool}
+                  {s.hint ? ': ' + s.hint : ''}
+                </span>
+              )}
+            </div>
+            {s.agents?.length > 0 && (
+              <div className="mt-0.5 space-y-0.5 pl-4">
+                {s.agents.map((a) => (
+                  <AgentRow key={a.key} a={a} lit={lit} now={now} />
+                ))}
+              </div>
             )}
           </div>
         ))}

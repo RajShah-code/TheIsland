@@ -14,6 +14,7 @@ import {
   defaultSettingsPath,
   installRelayFile,
   isInstalled,
+  isUpToDate,
   planInstall,
   planUninstall,
   relayInstallPath
@@ -80,7 +81,8 @@ try {
       console.log('Removed. Backup: ' + r.backup)
     }
   } else if (cmd === 'status') {
-    console.log(isInstalled(settingsPath) ? 'Installed in ' + settingsPath : 'Not installed in ' + settingsPath)
+    const state = !isInstalled(settingsPath) ? 'Not installed' : isUpToDate(settingsPath) ? 'Installed' : 'Installed but outdated (run hooks:install)'
+    console.log(state + ' in ' + settingsPath)
   } else {
     console.log('Usage: node scripts/hooks.mjs <diff|install|uninstall|status> [--yes] [--settings <path>]')
   }
