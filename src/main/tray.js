@@ -107,8 +107,9 @@ export function createTray({ onConfigChanged, onCalendarChanged }) {
     refresh()
   }
 
-  function setCalendarFromClipboard() {
-    const url = clipboard.readText().trim()
+  async function setCalendarFromClipboard() {
+    // readText() returns a Promise in this Electron version.
+    const url = String((await clipboard.readText()) || '').trim()
     let ok = false
     try {
       const u = new URL(url)
