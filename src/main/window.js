@@ -1,7 +1,9 @@
 // The island window: one frameless, transparent, always-on-top window touching the top edge of the
 // primary display, centred. It is sized for the expanded island; the renderer draws the notch, and the
-// rest of the window lets clicks through (setIgnoreMouseEvents with forward, turned off by the
-// renderer only while the island is open and the pointer is on it). focusable:false: no focus steal.
+// rest of the window lets clicks through. The window ignores the mouse completely (no forwarding:
+// Windows UIPI drops forwarded moves over elevated windows, and forwarding every move was costly);
+// pointer.js polls the cursor and tells the renderer where it is. The mouse is turned on only while the
+// island is open and the pointer is on it. focusable:false: no focus steal.
 import path from 'node:path'
 import { app, BrowserWindow, screen, shell } from 'electron'
 
@@ -48,7 +50,7 @@ export function createIslandWindow() {
   })
 
   win.setAlwaysOnTop(true, 'screen-saver')
-  win.setIgnoreMouseEvents(true, { forward: true })
+  win.setIgnoreMouseEvents(true)
   position(win)
 
   // The window only ever shows our own page.

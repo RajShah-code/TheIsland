@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ApprovalCard, ClaudeCompact, ClaudePanel, Dot, Mascot, mostRelevant } from './components/Claude'
 import { SystemPanel } from './components/System'
+import { emitPointer } from './pointer'
 import { useIsland } from './store'
 import { orderedWidgets } from './widgets'
 import { CompactDate, CompactTime } from './widgets/clock'
@@ -81,16 +82,19 @@ export default function App() {
     if (!fullscreen) setPeek(false)
   }, [fullscreen])
 
-  // The window ignores the mouse (moves are still forwarded here) unless the island is open and the
-  // pointer is on it, so everything below the pill stays clickable.
+  // The window ignores the mouse unless the island is open and the pointer is on it, so everything
+  // below the pill stays clickable. Meanwhile main polls the cursor and sends `island:pointer` (forwarded
+  // mouse moves don't reach us over elevated windows and cost more). While interactive, real mousemove
+  // events take over. Both feed the same handler.
   useEffect(() => {
-    const onMove = (e) => {
+    const onMove = (x, y) => {
+      emitPointer({ x, y })
       const { fullscreen, expanded, hidden } = now.current
       const r = notchRef.current.getBoundingClientRect()
-      const overX = e.clientX >= r.left && e.clientX <= r.right
-      const inside = overX && e.clientY >= r.top && e.clientY <= r.bottom
-      const atEdge = e.clientY <= EDGE
-      if (fullscreen && atEdge && Math.abs(e.clientX - window.innerWidth / 2) < PEEK_ZONE) reveal()
+      const overX = x >= r.left && x <= r.right
+      const inside = overX && y >= r.top && y <= r.bottom
+      const atEdge = y <= EDGE
+      if (fullscreen && atEdge && Math.abs(x - window.innerWidth / 2) < PEEK_ZONE) reveal()
       if (expanded) {
         if (inside) {
           cancelLeave()
@@ -101,8 +105,19 @@ export default function App() {
       if (atEdge && overX) return open()
       setGhost(!hidden && inside)
     }
-    document.addEventListener('mousemove', onMove)
-    return () => document.removeEventListener('mousemove', onMove)
+    // Pointer gone from the window (or main took the mouse back): no ghost, and leave if interactive.
+    const onGone = () => (interactive.current ? leave() : setGhost(false))
+    const offPolled = window.island.onPointer((p) => {
+      if (!p || p.inside !== true) return onGone()
+      // A poll sent just before we turned interactive is stale; real events are coming now.
+      if (!interactive.current && Number.isFinite(p.x) && Number.isFinite(p.y)) onMove(p.x, p.y)
+    })
+    const onMouseMove = (e) => onMove(e.clientX, e.clientY)
+    document.addEventListener('mousemove', onMouseMove)
+    return () => {
+      offPolled()
+      document.removeEventListener('mousemove', onMouseMove)
+    }
   }, [])
 
   // Closing (an approval answered, the hover timer) hands the mouse back at once.

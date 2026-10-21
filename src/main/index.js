@@ -10,6 +10,7 @@ import { startHelper } from './helper'
 import { startRelayServer } from './relay-server'
 import { createSettingsWindowManager } from './settings-window'
 import { createTray } from './tray'
+import { createPointerTracker } from './pointer'
 import { createIslandWindow } from './window'
 
 if (!app.requestSingleInstanceLock()) {
@@ -55,6 +56,7 @@ function start() {
   let hidden = false
   let tray = null
   let media = null
+  let pointer = null
   // The renderer asks for System tab stats only while that tab is on screen; a hidden island never.
   let systemWanted = false
   const updateSystemWatch = () => media?.system.setWatch(systemWanted && !hidden)
@@ -71,6 +73,7 @@ function start() {
       }
     }
     updateSystemWatch()
+    pointer?.setEnabled(!on)
     log(on ? 'island hidden' : 'island shown')
     tray?.refresh()
   }
@@ -147,6 +150,14 @@ function start() {
   }
   win.webContents.on('did-start-loading', dropSystemWatch)
   win.webContents.on('render-process-gone', dropSystemWatch)
+  // Cursor polling instead of forwarded mouse moves (see pointer.js). A reloading or crashed page
+  // starts out not interactive, so hand the mouse back for it too.
+  pointer = createPointerTracker(win, (p) => send('island:pointer', p))
+  if (hidden) pointer.setEnabled(false)
+  const dropInteractive = () => pointer.setInteractive(false)
+  win.webContents.on('did-start-loading', dropInteractive)
+  win.webContents.on('render-process-gone', dropInteractive)
+  win.on('closed', () => pointer.stop())
 
   ipcMain.handle('island:state', (e) =>
     fromIsland(e)
@@ -175,7 +186,7 @@ function start() {
     updateSystemWatch()
   })
   ipcMain.on('island:interactive', (e, on) => {
-    if (fromIsland(e)) win.setIgnoreMouseEvents(!on, { forward: true })
+    if (fromIsland(e)) pointer.setInteractive(on === true)
   })
   ipcMain.on('island:open-settings', (e) => {
     if (fromIsland(e)) settingsWin.open()
@@ -209,6 +220,7 @@ function start() {
     hub.releaseAll()
     server.close()
     media.stop()
+    pointer?.stop()
     tray.destroy()
     log('quit')
   })

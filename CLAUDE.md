@@ -22,7 +22,15 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
     settings window. Every settings change goes through `settingsChanged()`: saves, pushes `island:settings`
     and `settings:changed`, refreshes the tray.
   - `settings-window.js` the settings window: framed, created when opened, destroyed when closed, one at a time.
-  - `window.js` frameless transparent always-on-top window, `focusable: false`, click-through outside the pill.
+  - `window.js` frameless transparent always-on-top window, `focusable: false`. It ignores the mouse
+    completely (`setIgnoreMouseEvents(true)`, no `forward`) except while the island is open and the pointer
+    is on it.
+  - `pointer.js` polls `screen.getCursorScreenPoint()` (about 250 ms far away, 40 ms within 40 px of the
+    window) and sends `island:pointer` `{ x, y, inside }` only when the point inside the window changes,
+    plus one `inside: false` when it leaves. Forwarded mouse moves were dropped by UIPI over elevated
+    windows and cost 15 to 25% of a core. No polling while hidden; while interactive the renderer uses
+    real mouse events and only a guard runs (cursor outside for 500 ms: mouse handed back). The renderer
+    feeds both sources into one handler (`src/renderer/src/pointer.js`, also used by the buddy's eyes).
   - `relay-server.js` 127.0.0.1 HTTP, random port, token in `%APPDATA%\TheIsland\relay.json`, rejects
     requests with an Origin header. Only `POST /event`. Approvals are answered over IPC, never HTTP.
   - `claude.js` sessions and pending approvals from hook events (memory only).

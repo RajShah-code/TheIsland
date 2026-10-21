@@ -2,6 +2,7 @@
 // No CSS animations (see CLAUDE.md): frames advance on a JS timer, a few per second, and only while
 // something moves. Idle costs one blink every few seconds.
 import { useEffect, useRef, useState } from 'react'
+import { onPointer } from '../pointer'
 
 const ORANGE = '#d97757'
 const ALERT = '#fb7185'
@@ -205,17 +206,16 @@ export function Buddy({ mood = 'idle', tool = null, beat = null, cell = 2, activ
       setLook(null)
       return
     }
-    const onMove = (e) => {
+    // The page's single pointer source (polled or real moves, see ../pointer.js).
+    return onPointer(({ x, y }) => {
       const r = ref.current?.getBoundingClientRect()
       if (!r) return
-      const dx = e.clientX - (r.left + r.width / 2)
-      const dy = e.clientY - (r.top + r.height / 2)
+      const dx = x - (r.left + r.width / 2)
+      const dy = y - (r.top + r.height / 2)
       const lx = Math.abs(dx) < 30 ? 0 : Math.sign(dx)
       const ly = Math.abs(dy) < 20 ? 0 : Math.sign(dy)
       setLook((l) => (l && l.lx === lx && l.ly === ly ? l : { lx, ly }))
-    }
-    document.addEventListener('mousemove', onMove)
-    return () => document.removeEventListener('mousemove', onMove)
+    })
   }, [active, follow])
 
   const p = active ? pose({ mood, tool, tick: tick.current, blink, react, look, still }) : pose({ mood: 'idle' })
