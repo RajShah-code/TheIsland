@@ -1,13 +1,11 @@
 # TheIsland
 
-A small "dynamic island" for Windows 11. It's a black pill at the top centre of the screen that shows:
+A small "dynamic island" for Windows 11: a black notch glued to the top centre of the screen. Hover it to open it:
 
-- **Claude Code**: your live sessions (working / needs you / done), and Allow / Deny buttons for permission prompts.
-- **Music**: what's playing in Spotify (or any app Windows can see), with play/pause, next and previous. No API key needed.
-- **Calendar**: your next events, read from your Google Calendar's secret iCal link.
-- **Clock**: 12-hour time.
+- **Home** tab, in separate columns: **Music** (only while a player is open; play/pause, next, previous, works with Spotify, no API key), **Clock** (12-hour) and **Calendar** (a day strip and that day's events, from your Google Calendar's secret iCal link).
+- **Claude Code** tab (only while a Claude Code session is open): your live sessions, and Allow / Deny buttons for permission prompts. It opens by itself when Claude Code needs an approval.
 
-Hover the pill to expand it. It also expands by itself when Claude Code needs an approval.
+When nothing is going on, the notch is small and empty; it shows album art and Claude's status on its sides when something is live. When a fullscreen game or video is in front, the notch hides. Touch the top edge of the screen near the centre to bring it back; it hides again a few seconds after you move away.
 
 ## Run it
 

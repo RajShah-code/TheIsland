@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('island', {
   onCalendar: on('island:calendar'),
   onSettings: on('island:settings'),
   onAttention: on('island:attention'),
+  onFullscreen: on('island:fullscreen'),
   decide: (id, decision) => ipcRenderer.send('island:decide', id, decision),
   media: (cmd) => ipcRenderer.send('island:media', cmd),
   setInteractive: (on) => ipcRenderer.send('island:interactive', !!on)

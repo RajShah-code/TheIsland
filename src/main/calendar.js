@@ -6,7 +6,7 @@ import { log } from './log'
 
 const REFRESH_MS = 15 * 60 * 1000
 const RANGE_MS = 7 * 24 * 60 * 60 * 1000
-const MAX_EVENTS = 8
+const MAX_EVENTS = 60
 const MAX_BYTES = 5 * 1024 * 1024
 
 export function startCalendar({ getUrl, onChange }) {
@@ -68,7 +68,10 @@ async function parse(text) {
   }
 
   const now = Date.now()
-  const rangeStart = now - 24 * 60 * 60 * 1000
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  // From the start of yesterday, so the day strip can show the last few days too.
+  const rangeStart = today.getTime() - 24 * 60 * 60 * 1000
   const rangeEnd = now + RANGE_MS
   const masters = new Map()
   const exceptions = []
@@ -118,7 +121,6 @@ async function parse(text) {
   }
 
   return out
-    .filter((e) => e.end > now)
     .sort((a, b) => a.start - b.start)
     .slice(0, MAX_EVENTS)
 }

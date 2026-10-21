@@ -22,17 +22,21 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
   - `relay-server.js` 127.0.0.1 HTTP, random port, token in `%APPDATA%\TheIsland\relay.json`, rejects
     requests with an Origin header. Only `POST /event`. Approvals are answered over IPC, never HTTP.
   - `claude.js` sessions and pending approvals from hook events (memory only).
-  - `media.js` runs `resources/media-helper.exe` and reads its JSON lines.
+  - `helper.js` runs `resources/island-helper.exe` (music events + fullscreen on/off) and reads its JSON lines.
   - `calendar.js` fetches the ICS URL every 15 min (and on resume), parses with `ical.js`.
   - `config.js` settings; the calendar URL is encrypted with `safeStorage` (DPAPI).
   - `tray.js` the only settings in v1: approvals switch, hook install/remove, calendar URL, quit.
 - `src/shared/hooks-installer.mjs` safe installer used by both the tray and `scripts/hooks.mjs`.
 - `hook/theisland-relay.cjs` the script Claude Code runs. Copied to `%APPDATA%\TheIsland` at app start so
   the hook path doesn't depend on this folder. No dependencies, exits 0 silently on any problem.
-- `helper/MediaHelper.cs` tiny C# program for Windows media sessions. Built by `scripts/build-helper.mjs`
+- `helper/IslandHelper.cs` tiny C# program: Windows media sessions (events) and fullscreen detection (one
+  cheap check per second, reports changes only). Built by `scripts/build-helper.mjs`
   with the `csc.exe` that ships with Windows (.NET Framework 4); the exe is gitignored.
-- `src/renderer/src/` React UI. `App.jsx` (pill and expanded view), `components/Claude.jsx`,
-  `widgets/<name>/index.jsx` + registration in `widgets/index.js`.
+- `src/renderer/src/` React UI. `App.jsx` (the notch: closed, open with Home / Claude Code tabs, fullscreen
+  hide and top-edge peek), `components/Claude.jsx`, `widgets/<name>/index.jsx` + registration in
+  `widgets/index.js`. Each widget is one column of the Home tab (`width`, optional `visible(state)`).
+- The notch shape is sized in px from React and animated with CSS transitions in `styles.css` (auto sizes
+  can't animate). Transitions only run while the shape changes, so it costs nothing at rest.
 
 ## Claude Code hooks
 
@@ -60,7 +64,7 @@ Test without Claude Code: pipe event JSON into the relay while the app runs, for
 ## Measuring
 
 ```powershell
-Get-Process electron,media-helper | Select Name,Id,CPU,@{n='PrivateMB';e={[int]($_.PrivateMemorySize64/1MB)}}
+Get-Process electron,island-helper | Select Name,Id,CPU,@{n='PrivateMB';e={[int]($_.PrivateMemorySize64/1MB)}}
 ```
 
 Sample CPU twice, 30 s apart, and compare. Baseline on 2026-10-21: idle about 121 MB private, about 0.5% of one core.

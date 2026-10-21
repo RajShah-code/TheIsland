@@ -1,11 +1,14 @@
-// TheIsland media helper.
+// TheIsland helper.
 //
-// A tiny console program that talks to Windows' media session API
-// (GlobalSystemMediaTransportControls, the same thing the volume flyout uses).
-// It works with Spotify, browsers and any player that reports to Windows.
+// A tiny program for the things Electron can't see on its own:
+// - Music: Windows' media session API (GlobalSystemMediaTransportControls, the same thing the volume
+//   flyout uses). Works with Spotify, browsers and any player that reports to Windows. Event-driven.
+// - Fullscreen: whether a fullscreen app (game, video) is in front on the primary display, so the
+//   island can get out of the way. One cheap check per second; only changes are reported.
 //
 // Protocol (one line per message):
-//   stdout -> JSON objects: {"type":"media", ...} whenever the track or play state changes.
+//   stdout -> JSON objects: {"type":"media", ...} whenever the track or play state changes,
+//             {"type":"fullscreen","on":true|false} when fullscreen starts or ends.
 //   stdin  <- commands: "toggle", "next", "prev", "refresh".
 // The helper exits when stdin closes, so it never outlives the app.
 //
@@ -14,13 +17,14 @@
 
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using Windows.Foundation;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
 
-class MediaHelper
+class IslandHelper
 {
     static GlobalSystemMediaTransportControlsSessionManager manager;
     static GlobalSystemMediaTransportControlsSession current;
@@ -49,6 +53,7 @@ class MediaHelper
         output = new StreamWriter(Console.OpenStandardOutput(), new UTF8Encoding(false));
         var input = new StreamReader(Console.OpenStandardInput(), Encoding.UTF8);
         debounce = new Timer(_ => Emit(), null, Timeout.Infinite, Timeout.Infinite);
+        fullscreenTimer = new Timer(_ => CheckFullscreen(), null, 0, 1000);
 
         try
         {
@@ -57,19 +62,21 @@ class MediaHelper
         catch (Exception)
         {
             Write("{\"type\":\"error\",\"message\":\"media sessions unavailable\"}");
-            return;
         }
 
-        manager.CurrentSessionChanged += (s, e) => { Attach(); Schedule(); };
-        Attach();
-        Schedule();
+        if (manager != null)
+        {
+            manager.CurrentSessionChanged += (s, e) => { Attach(); Schedule(); };
+            Attach();
+            Schedule();
+        }
 
         string line;
         while ((line = input.ReadLine()) != null)
         {
             var s = current;
             line = line.Trim();
-            if (line == "refresh") { Schedule(); continue; }
+            if (line == "refresh") { Schedule(); lastFullscreen = null; continue; }
             if (s == null) continue;
             try
             {
@@ -174,6 +181,60 @@ class MediaHelper
             else sb.Append(c);
         }
         return sb.ToString();
+    }
+
+    // ---- Fullscreen ----
+
+    static Timer fullscreenTimer;
+    static bool? lastFullscreen = null;
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct RECT { public int Left, Top, Right, Bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public uint dwFlags; }
+
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+    [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr hWnd);
+    [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
+    [DllImport("user32.dll")] static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO info);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr hWnd, StringBuilder name, int max);
+    [DllImport("shell32.dll")] static extern int SHQueryUserNotificationState(out int state);
+
+    const int QUNS_RUNNING_D3D_FULL_SCREEN = 3;
+
+    static bool IsFullscreen()
+    {
+        // Exclusive-mode games.
+        int quns;
+        if (SHQueryUserNotificationState(out quns) == 0 && quns == QUNS_RUNNING_D3D_FULL_SCREEN) return true;
+
+        // Borderless fullscreen (most games, browser/YouTube fullscreen, video players):
+        // the foreground window covers its whole monitor, and that monitor is the primary one.
+        IntPtr hwnd = GetForegroundWindow();
+        if (hwnd == IntPtr.Zero || IsZoomed(hwnd)) return false;
+        var cls = new StringBuilder(64);
+        GetClassName(hwnd, cls, cls.Capacity);
+        string c = cls.ToString();
+        if (c == "Progman" || c == "WorkerW" || c == "Shell_TrayWnd" || c == "Windows.UI.Core.CoreWindow") return false;
+        RECT r;
+        if (!GetWindowRect(hwnd, out r)) return false;
+        var mi = new MONITORINFO();
+        mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+        if (!GetMonitorInfo(MonitorFromWindow(hwnd, 2), ref mi)) return false;
+        if ((mi.dwFlags & 1) == 0) return false;
+        var m = mi.rcMonitor;
+        return r.Left <= m.Left && r.Top <= m.Top && r.Right >= m.Right && r.Bottom >= m.Bottom;
+    }
+
+    static void CheckFullscreen()
+    {
+        bool on;
+        try { on = IsFullscreen(); } catch { on = false; }
+        if (lastFullscreen == on) return;
+        lastFullscreen = on;
+        Write("{\"type\":\"fullscreen\",\"on\":" + (on ? "true" : "false") + "}");
     }
 
     static void Write(string json)

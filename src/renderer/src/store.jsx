@@ -7,7 +7,8 @@ const EMPTY = {
   claude: { sessions: [], approvals: [] },
   media: { available: false, active: false },
   calendar: { configured: false, events: [] },
-  settings: { approvalsEnabled: true }
+  settings: { approvalsEnabled: true },
+  fullscreen: false
 }
 
 export function IslandProvider({ children }) {
@@ -20,7 +21,8 @@ export function IslandProvider({ children }) {
       api.onClaude(set('claude')),
       api.onMedia(set('media')),
       api.onCalendar(set('calendar')),
-      api.onSettings(set('settings'))
+      api.onSettings(set('settings')),
+      api.onFullscreen(set('fullscreen'))
     ]
     api.getState().then((s) => s && setState(s))
     return () => offs.forEach((off) => off())

@@ -1,4 +1,4 @@
-// Compiles helper/MediaHelper.cs into resources/media-helper.exe using the C# compiler
+// Compiles helper/IslandHelper.cs into resources/island-helper.exe using the C# compiler
 // that ships with Windows (.NET Framework 4). No .NET SDK or other toolchain needed.
 // Skips the build when the exe is newer than the source.
 import { execFileSync } from 'node:child_process'
@@ -7,8 +7,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const src = join(root, 'helper', 'MediaHelper.cs')
-const out = join(root, 'resources', 'media-helper.exe')
+const src = join(root, 'helper', 'IslandHelper.cs')
+const out = join(root, 'resources', 'island-helper.exe')
 const windir = process.env.WINDIR || 'C:\\Windows'
 const fw = join(windir, 'Microsoft.NET', 'Framework64', 'v4.0.30319')
 const winmd = join(windir, 'System32', 'WinMetadata')
@@ -19,7 +19,7 @@ if (existsSync(out) && statSync(out).mtimeMs > statSync(src).mtimeMs && !process
   process.exit(0)
 }
 if (!existsSync(csc)) {
-  console.error('[build-helper] csc.exe not found at ' + csc + '. The music widget will be disabled.')
+  console.error('[build-helper] csc.exe not found at ' + csc + '. Music and fullscreen detection will be disabled.')
   process.exit(0)
 }
 

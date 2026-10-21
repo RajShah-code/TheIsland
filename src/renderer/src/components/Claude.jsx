@@ -41,7 +41,7 @@ export function ClaudeCompact({ sessions }) {
   return (
     <span className="flex min-w-0 items-center gap-1.5 text-[12px]">
       <Dot state={s.state} />
-      <span className="max-w-[120px] truncate text-white/85">{s.project}</span>
+      <span className="max-w-[110px] truncate text-white/85">{s.project}</span>
       {s.state === 'working' && s.tool && <span className="max-w-[80px] truncate text-white/45">{s.tool}</span>}
       {s.state !== 'working' && <span className="text-white/45">{STATE[s.state]?.label}</span>}
       {more > 0 && <span className="text-white/40">+{more}</span>}
@@ -49,7 +49,7 @@ export function ClaudeCompact({ sessions }) {
   )
 }
 
-export function SessionList({ sessions }) {
+export function ClaudePanel({ sessions }) {
   if (sessions.length === 0) {
     return <p className="text-xs text-white/45">No Claude Code sessions right now</p>
   }

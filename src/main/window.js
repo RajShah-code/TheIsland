@@ -1,18 +1,18 @@
-// The island window: one frameless, transparent, always-on-top window at the top centre of the
-// primary display. It is sized for the expanded island; the renderer only draws the pill, and the
+// The island window: one frameless, transparent, always-on-top window touching the top edge of the
+// primary display, centred. It is sized for the expanded island; the renderer draws the notch, and the
 // rest of the window lets clicks through (setIgnoreMouseEvents with forward, toggled by the
 // renderer when the pointer enters/leaves the pill). focusable:false means it never steals focus.
 import path from 'node:path'
 import { app, BrowserWindow, screen, shell } from 'electron'
 
-export const WIDTH = 540
-export const HEIGHT = 480
+export const WIDTH = 820
+export const HEIGHT = 420
 
 function position(win) {
-  const { workArea } = screen.getPrimaryDisplay()
+  const { bounds } = screen.getPrimaryDisplay()
   win.setBounds({
-    x: Math.round(workArea.x + (workArea.width - WIDTH) / 2),
-    y: workArea.y,
+    x: Math.round(bounds.x + (bounds.width - WIDTH) / 2),
+    y: bounds.y,
     width: WIDTH,
     height: HEIGHT
   })

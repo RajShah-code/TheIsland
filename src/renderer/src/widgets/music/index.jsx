@@ -12,7 +12,7 @@ function Button({ icon, onClick, disabled, big }) {
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`grid place-items-center rounded-full text-white transition hover:bg-white/15 disabled:opacity-30 ${
+      className={`grid place-items-center rounded-full text-white transition-colors hover:bg-white/12 disabled:opacity-30 ${
         big ? 'h-9 w-9' : 'h-8 w-8'
       }`}
     >
@@ -29,11 +29,11 @@ function appName(id) {
   return base.length > 24 ? '' : base
 }
 
-function Art({ src, size }) {
+function Art({ src, size, round = 'rounded-xl' }) {
   return src ? (
-    <img src={src} alt="" className="shrink-0 rounded-md object-cover" style={{ width: size, height: size }} />
+    <img src={src} alt="" className={`shrink-0 object-cover ${round}`} style={{ width: size, height: size }} />
   ) : (
-    <div className="grid shrink-0 place-items-center rounded-md bg-white/10" style={{ width: size, height: size }}>
+    <div className={`grid shrink-0 place-items-center bg-white/10 ${round}`} style={{ width: size, height: size }}>
       <svg viewBox="0 0 24 24" className="h-1/2 w-1/2 text-white/50" fill="currentColor">
         <path d="M9 18a3 3 0 1 1-2-2.83V5l12-2v11a3 3 0 1 1-2-2.83V6.2l-8 1.33z" />
       </svg>
@@ -41,35 +41,40 @@ function Art({ src, size }) {
   )
 }
 
-// Shown in the collapsed pill only while something is playing.
+// In the closed notch, only while something is playing.
 function Compact() {
   const { media } = useIsland()
   if (!media.active || media.status !== 'Playing') return null
-  return <Art src={media.art} size={20} />
+  return <Art src={media.art} size={20} round="rounded-md" />
 }
 
 function Panel() {
   const { media } = useIsland()
-  if (!media.available) {
-    return <p className="text-xs text-white/50">Music helper not built. Run npm run build:helper.</p>
-  }
-  if (!media.active) return <p className="text-xs text-white/50">Nothing playing</p>
   const playing = media.status === 'Playing'
   return (
-    <div className="flex items-center gap-3">
-      <Art src={media.art} size={52} />
+    <div className="flex h-full items-center gap-3.5">
+      <Art src={media.art} size={84} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold">{media.title || 'Unknown'}</p>
-        <p className="truncate text-xs text-white/60">{media.artist}</p>
-        <p className="truncate text-[10px] uppercase tracking-wide text-white/35">{appName(media.app)}</p>
-      </div>
-      <div className="flex items-center">
-        <Button icon="prev" disabled={!media.canPrev} onClick={() => window.island.media('prev')} />
-        <Button icon={playing ? 'pause' : 'play'} big onClick={() => window.island.media('toggle')} />
-        <Button icon="next" disabled={!media.canNext} onClick={() => window.island.media('next')} />
+        <p className="line-clamp-2 text-[15px] leading-tight font-semibold">{media.title || 'Unknown'}</p>
+        <p className="mt-0.5 truncate text-xs text-white/60">{media.artist}</p>
+        <p className="truncate text-[10px] text-white/35">{appName(media.app)}</p>
+        <div className="mt-1.5 -ml-1.5 flex items-center">
+          <Button icon="prev" disabled={!media.canPrev} onClick={() => window.island.media('prev')} />
+          <Button icon={playing ? 'pause' : 'play'} big onClick={() => window.island.media('toggle')} />
+          <Button icon="next" disabled={!media.canNext} onClick={() => window.island.media('next')} />
+        </div>
       </div>
     </div>
   )
 }
 
-export default { id: 'music', name: 'Music', options: {}, Compact, Panel }
+export default {
+  id: 'music',
+  name: 'Music',
+  width: 250,
+  options: {},
+  // Only takes a column while a player is open.
+  visible: (state) => state.media.available && state.media.active,
+  Compact,
+  Panel
+}

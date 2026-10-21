@@ -5,7 +5,7 @@ import { createClaudeHub } from './claude'
 import { startCalendar } from './calendar'
 import { getConfig, getSecret } from './config'
 import { log } from './log'
-import { startMedia } from './media'
+import { startHelper } from './helper'
 import { startRelayServer } from './relay-server'
 import { createTray } from './tray'
 import { createIslandWindow } from './window'
@@ -44,7 +44,10 @@ function start() {
     }
   })
   const server = startRelayServer({ dir: app.getPath('userData'), onEvent: hub.handle })
-  const media = startMedia({ onChange: (m) => send('island:media', m) })
+  const media = startHelper({
+    onMedia: (m) => send('island:media', m),
+    onFullscreen: (on) => send('island:fullscreen', on)
+  })
   const calendar = startCalendar({
     getUrl: () => getSecret('calendarUrl'),
     onChange: (c) => send('island:calendar', c)
@@ -63,7 +66,13 @@ function start() {
 
   ipcMain.handle('island:state', (e) =>
     fromIsland(e)
-      ? { claude: hub.snapshot(), media: media.get(), calendar: calendar.get(), settings: settings() }
+      ? {
+          claude: hub.snapshot(),
+          media: media.get(),
+          calendar: calendar.get(),
+          settings: settings(),
+          fullscreen: media.isFullscreen()
+        }
       : null
   )
   ipcMain.on('island:decide', (e, id, decision) => {
