@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "system-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--config", "src/renderer/preview/vite.config.mjs"],
+      "port": 5199
+    }
+  ]
+}

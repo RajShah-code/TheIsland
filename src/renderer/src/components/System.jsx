@@ -1,5 +1,6 @@
-// System tab: live meters on the left, Windows Quick Settings style controls on the right (sliders,
-// the sound output picker and a grid of tiles). Data comes from the main process (island:system); CPU,
+// System tab, laid out like the Mac's Control Center: rounded modules for connectivity (Wi-Fi,
+// Bluetooth, ...), live stats as ring gauges, Display and Sound sliders with the output picker, and a
+// grid of round buttons for everything else. Data comes from the main process (island:system); CPU,
 // RAM, GPU, disk and network only update while this tab is on screen (App.jsx turns the watch on and
 // off). Nothing here runs a timer while the tab is hidden: meters only change on a push, the battery
 // listens to its own events, and the only timers are the slider throttle and the sleep confirm, both
@@ -12,9 +13,11 @@ import { Icon, SYSTEM_ICONS } from './icons'
 // can validate settings.system and the settings window can list them), in the user's order.
 export { SYSTEM_ITEMS }
 
-const METERS_W = 250
-// The open island is at most about 380 px tall; this keeps the tab inside it (the column scrolls).
-const CONTROLS_MAX_H = 296
+const LEFT_W = 288
+// The open island is at most about 380 px tall; this keeps the tab inside it (the columns scroll).
+const MAX_H = 300
+// Shown as Control Center style rows with a status line, in the user's order.
+const CONNECTIVITY = new Set(['wifi', 'bluetooth', 'airplane', 'hotspot'])
 const THROTTLE_MS = 80
 // After a drag ends, keep showing our value a moment so a late push can't make the thumb jump.
 const HOLD_MS = 600
@@ -43,57 +46,54 @@ function rate(v) {
 
 const gb = (bytes) => (bytes / 1024 ** 3).toFixed(1)
 
-// Load bars warn when high; pass color to override (the battery is good when high).
-function Bar({ value, color }) {
+// A module: one rounded group, like the blocks of the Mac's Control Center.
+function Module({ title, aside, className = '', children }) {
+  return (
+    <section className={`rounded-2xl bg-white/[0.08] p-2 ring-1 ring-white/[0.06] ring-inset ${className}`}>
+      {(title || aside) && (
+        <div className="mb-1.5 flex h-3.5 items-center justify-between px-1">
+          <h3 className="text-[11px] font-semibold text-white/85">{title}</h3>
+          {aside}
+        </div>
+      )}
+      {children}
+    </section>
+  )
+}
+
+// A ring gauge (Apple Watch style). Warns when a load is high; pass color for the battery.
+function Ring({ value, label, sub, color }) {
   const ok = typeof value === 'number'
+  const v = ok ? Math.max(0, Math.min(100, value)) : 0
+  const R = 17
+  const C = 2 * Math.PI * R
+  const stroke = color || (v > 85 ? '#fbbf24' : '#fff')
   return (
-    <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
-      <div
-        className={`h-full rounded-full transition-[width] duration-300 ${color || (value > 85 ? 'bg-amber-400' : 'bg-white/70')}`}
-        style={{ width: ok ? Math.max(0, Math.min(100, value)) + '%' : 0 }}
-      />
+    <div className="flex min-w-0 flex-1 flex-col items-center">
+      <div className="relative h-11 w-11">
+        <svg viewBox="0 0 44 44" className="h-11 w-11 -rotate-90" aria-hidden="true">
+          <circle cx="22" cy="22" r={R} fill="none" stroke="rgb(255 255 255 / 0.12)" strokeWidth="4.5" />
+          <circle
+            cx="22"
+            cy="22"
+            r={R}
+            fill="none"
+            stroke={stroke}
+            strokeWidth="4.5"
+            strokeLinecap="round"
+            strokeDasharray={C}
+            strokeDashoffset={C * (1 - v / 100)}
+            opacity={ok && v > 0 ? 1 : 0}
+            className="transition-[stroke-dashoffset] duration-300"
+          />
+        </svg>
+        <span className="absolute inset-0 grid place-items-center text-[10px] font-semibold text-white tabular-nums">
+          {missing(value) ?? Math.round(v)}
+        </span>
+      </div>
+      <span className="mt-1 text-[10px] font-medium text-white/70">{label}</span>
+      <span className="h-3 max-w-full truncate text-[9px] text-white/40 tabular-nums">{sub}</span>
     </div>
-  )
-}
-
-function Row({ label, children }) {
-  return (
-    <div className="flex h-5 items-center gap-2.5 text-[11px]">
-      <span className="w-[52px] shrink-0 text-white/50">{label}</span>
-      {children}
-    </div>
-  )
-}
-
-function Value({ children, wide }) {
-  return (
-    <span className={`shrink-0 text-right text-white/85 tabular-nums ${wide ? 'w-[110px]' : 'w-[70px]'}`}>
-      {children}
-    </span>
-  )
-}
-
-function PercentMeter({ label, value }) {
-  return (
-    <Row label={label}>
-      <Bar value={value} />
-      <Value>{missing(value) ?? Math.round(value) + '%'}</Value>
-    </Row>
-  )
-}
-
-function Pair({ a, b, aLabel, bLabel }) {
-  return (
-    <span className="flex min-w-0 flex-1 justify-between gap-2 text-white/85 tabular-nums">
-      <span className="truncate">
-        <span className="text-white/40">{aLabel} </span>
-        {a}
-      </span>
-      <span className="truncate">
-        <span className="text-white/40">{bLabel} </span>
-        {b}
-      </span>
-    </span>
   )
 }
 
@@ -124,50 +124,63 @@ function useBattery(active) {
   return battery
 }
 
-function BatteryMeter({ active }) {
+function BatteryRing({ active }) {
   const b = useBattery(active)
   const level = b ? Math.round(b.level * 100) : b
-  const note = b ? (b.charging ? (level >= 100 ? 'plugged in' : 'charging') : '') : ''
+  const sub = b ? (b.charging ? (level >= 100 ? 'Plugged in' : 'Charging') : 'On battery') : ''
+  return <Ring label="Battery" value={level} sub={sub} color={level >= 90 ? '#34d399' : level <= 20 ? '#f43f5e' : '#fff'} />
+}
+
+const RINGS = {
+  cpu: ({ s }) => <Ring label="CPU" value={s.cpu} />,
+  ram: ({ s }) => {
+    const p = typeof s.ramUsed === 'number' && s.ramTotal ? (s.ramUsed / s.ramTotal) * 100 : s.ramUsed
+    return <Ring label="Memory" value={p} sub={typeof s.ramUsed === 'number' ? `${gb(s.ramUsed)} GB` : ''} />
+  },
+  gpu: ({ s }) => <Ring label="GPU" value={s.gpu} />,
+  battery: ({ active }) => <BatteryRing active={active} />
+}
+
+// Transfer rates under the rings: an icon and two figures.
+function Rate({ icon, label, a, b, aLabel, bLabel }) {
   return (
-    <Row label="Battery">
-      <Bar value={level} color={level >= 90 ? 'bg-emerald-400' : level <= 20 ? 'bg-rose-500' : 'bg-white/70'} />
-      <Value wide>
-        {missing(level) ?? level + '%'}
-        {note && <span className="text-white/40"> {note}</span>}
-      </Value>
-    </Row>
+    <div className="flex min-w-0 flex-1 items-center gap-1.5 text-[10px]" title={label}>
+      <Icon name={icon} size={12} className="shrink-0 text-white/45" />
+      <span className="min-w-0 truncate text-white/85 tabular-nums">
+        <span className="text-white/40">{aLabel}</span> {a} <span className="text-white/40">{bLabel}</span> {b}
+      </span>
+    </div>
   )
 }
 
-const METERS = {
-  cpu: ({ s }) => <PercentMeter label="CPU" value={s.cpu} />,
-  ram: ({ s }) => {
-    const p = typeof s.ramUsed === 'number' && s.ramTotal ? (s.ramUsed / s.ramTotal) * 100 : s.ramUsed
-    return (
-      <Row label="Memory">
-        <Bar value={p} />
-        <Value wide>
-          {missing(s.ramUsed) ?? (
-            <>
-              {gb(s.ramUsed)}/{gb(s.ramTotal)} GB <span className="text-white/40">{Math.round(p)}%</span>
-            </>
-          )}
-        </Value>
-      </Row>
-    )
-  },
-  gpu: ({ s }) => <PercentMeter label="GPU" value={s.gpu} />,
-  disk: ({ s }) => (
-    <Row label="Disk">
-      <Pair aLabel="R" a={rate(s.diskRead)} bLabel="W" b={rate(s.diskWrite)} />
-    </Row>
-  ),
-  network: ({ s }) => (
-    <Row label="Network">
-      <Pair aLabel="↓" a={rate(s.netDown)} bLabel="↑" b={rate(s.netUp)} />
-    </Row>
-  ),
-  battery: ({ active }) => <BatteryMeter active={active} />
+const RATES = {
+  network: ({ s }) => <Rate icon="network" label="Network" aLabel="↓" a={rate(s.netDown)} bLabel="↑" b={rate(s.netUp)} />,
+  disk: ({ s }) => <Rate icon="disk" label="Disk" aLabel="R" a={rate(s.diskRead)} bLabel="W" b={rate(s.diskWrite)} />
+}
+
+function StatsModule({ items, props }) {
+  const rings = items.filter((it) => RINGS[it.id])
+  const rates = items.filter((it) => RATES[it.id])
+  return (
+    <Module title="Activity">
+      {rings.length > 0 && (
+        <div className="flex">
+          {rings.map((it) => {
+            const R = RINGS[it.id]
+            return <R key={it.id} {...props} />
+          })}
+        </div>
+      )}
+      {rates.length > 0 && (
+        <div className={`flex flex-col gap-1 px-0.5 ${rings.length ? 'mt-1.5 border-t border-white/[0.07] pt-2' : ''}`}>
+          {rates.map((it) => {
+            const R = RATES[it.id]
+            return <R key={it.id} {...props} />
+          })}
+        </div>
+      )}
+    </Module>
+  )
 }
 
 // A range input that sends while dragging (at most every THROTTLE_MS, plus the final value on
@@ -234,78 +247,58 @@ function useSlider(value, onSend, active) {
   return { value: draft ?? value, onChange, onPointerDown }
 }
 
-function Slider({ value, onSend, disabled, label, active }) {
+// A thick Mac style slider. The fill always covers the left end, so the icon drawn there stays dark
+// on white.
+function Slider({ value, onSend, disabled, label, active, icon }) {
   const s = useSlider(value ?? 0, onSend, active)
   return (
-    <input
-      type="range"
-      min="0"
-      max="100"
-      step="1"
-      aria-label={label}
-      disabled={disabled}
-      value={s.value}
-      onChange={s.onChange}
-      onPointerDown={s.onPointerDown}
-      className="island-range min-w-0 flex-1"
-      style={{ '--val': s.value + '%' }}
-    />
+    <div className={`relative flex min-w-0 flex-1 ${disabled ? 'opacity-35' : ''}`}>
+      <input
+        type="range"
+        min="0"
+        max="100"
+        step="1"
+        aria-label={label}
+        disabled={disabled}
+        value={s.value}
+        onChange={s.onChange}
+        onPointerDown={s.onPointerDown}
+        className="mac-range min-w-0 flex-1"
+        style={{ '--fill': `calc(12px + (100% - 24px) * ${s.value / 100})` }}
+      />
+      {icon && (
+        <span className="pointer-events-none absolute top-0 left-0 grid h-6 w-6 place-items-center text-black/60">
+          <Icon name={icon} size={13} strokeWidth={1.8} />
+        </span>
+      )}
+    </div>
   )
 }
 
 const focusRing =
   'outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1 focus-visible:ring-offset-black'
 
-function VolumeControl({ s, active }) {
-  const a = s.audio
-  const muted = a.available && a.muted
-  return (
-    <div className="flex h-7 items-center gap-2">
-      <button
-        type="button"
-        onClick={() => send('mute', 'toggle')}
-        disabled={!a.available}
-        title={muted ? 'Unmute' : 'Mute'}
-        aria-label={muted ? 'Unmute' : 'Mute'}
-        aria-pressed={muted}
-        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full transition-colors hover:bg-white/12 disabled:opacity-30 ${focusRing} ${
-          muted ? 'text-rose-300' : 'text-white/80'
-        }`}
-      >
-        <Icon name={muted ? 'speakerMuted' : 'speaker'} />
-      </button>
-      <Slider value={a.volume} disabled={!a.available} label="Volume" active={active} onSend={(v) => send('volume', v)} />
-      <span className="w-[42px] shrink-0 text-right text-[11px] text-white/60 tabular-nums">
-        {a.available ? (muted ? 'Muted' : a.volume + '%') : 'n/a'}
-      </span>
-    </div>
-  )
-}
-
-function BrightnessControl({ s, active }) {
+function DisplayModule({ s, active }) {
   const b = s.brightness
   return (
-    <div className="flex h-7 items-center gap-2">
-      <span className={`grid h-7 w-7 shrink-0 place-items-center text-white/80 ${b.available ? '' : 'opacity-30'}`}>
-        <Icon name="sun" />
-      </span>
+    <Module title="Display">
       {b.available ? (
-        <>
-          <Slider value={b.value} label="Brightness" active={active} onSend={(v) => send('brightness', v)} />
-          <span className="w-[42px] shrink-0 text-right text-[11px] text-white/60 tabular-nums">{b.value}%</span>
-        </>
+        <Slider value={b.value} label="Brightness" icon="sun" active={active} onSend={(v) => send('brightness', v)} />
       ) : (
-        <span className="text-[11px] text-white/40">Brightness is not adjustable on this display</span>
+        <p className="px-1 text-[10px] text-white/40">Brightness is not adjustable on this display</p>
       )}
-    </div>
+    </Module>
   )
 }
 
-// Sound output: a compact button showing the default device that opens a short list right below it
-// (in the page, not a native popup, so it can never leave the island window).
-function OutputPicker({ s, active }) {
+// Sound, like the Mac's: the volume slider, and the output device as a small button in the header
+// that opens the list of outputs under the slider (in the page, not a native popup, so it can never
+// leave the island window).
+function SoundModule({ s, active, withVolume, withOutput }) {
+  const a = s.audio
+  const muted = a.available && a.muted
   const [open, setOpen] = useState(false)
-  const outputs = Array.isArray(s.outputs) ? s.outputs : []
+  const outputs = withOutput && Array.isArray(s.outputs) ? s.outputs : []
   const current = outputs.find((o) => o.default)
   const listRef = useRef(null)
   useEffect(() => {
@@ -316,32 +309,59 @@ function OutputPicker({ s, active }) {
     if (open && el) (el.querySelector('[aria-checked="true"]') || el.querySelector('button'))?.focus()
   }, [open])
   const none = outputs.length === 0
+
+  const outputButton = withOutput && (
+    <button
+      type="button"
+      disabled={none}
+      aria-expanded={open}
+      aria-haspopup="true"
+      aria-label={`Sound output: ${current ? current.name : 'none'}`}
+      title={none ? 'No sound outputs reported yet' : current ? current.name : 'Choose the sound output'}
+      onClick={() => setOpen((o) => !o)}
+      className={`-my-1 -mr-1 flex h-5 max-w-[170px] min-w-0 items-center gap-1 rounded-full pr-1.5 pl-1 text-[10px] text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-35 ${focusRing} ${
+        open ? 'bg-white/10 text-white' : ''
+      }`}
+    >
+      <Icon name="headphones" size={11} strokeWidth={1.8} className="shrink-0" />
+      <span className="min-w-0 truncate">{none ? 'Output' : current ? current.name : 'Choose output'}</span>
+      <Icon name="chevronDown" size={10} strokeWidth={2} className={`shrink-0 ${open ? 'rotate-180' : ''}`} />
+    </button>
+  )
+
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex h-7 items-center gap-2">
-        <span className={`grid h-7 w-7 shrink-0 place-items-center text-white/80 ${none ? 'opacity-30' : ''}`}>
-          <Icon name="headphones" />
-        </span>
-        <button
-          type="button"
-          disabled={none}
-          aria-expanded={open}
-          aria-haspopup="true"
-          aria-label={`Sound output: ${current ? current.name : 'none'}`}
-          title={none ? 'No sound outputs reported yet' : 'Choose the sound output'}
-          onClick={() => setOpen((o) => !o)}
-          className={`flex h-7 min-w-0 flex-1 items-center gap-2 rounded-lg bg-white/8 px-2.5 text-left text-[11px] text-white/85 transition-colors hover:bg-white/14 disabled:opacity-35 disabled:hover:bg-white/8 ${focusRing}`}
-        >
-          <span className="min-w-0 flex-1 truncate">{none ? 'Sound output' : current ? current.name : 'Choose output'}</span>
-          <Icon name="chevronDown" size={12} className={`shrink-0 text-white/50 ${open ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
+    <Module title="Sound" aside={outputButton}>
+      {withVolume && (
+        <div className="flex items-center gap-1.5">
+          <Slider
+            value={a.volume}
+            disabled={!a.available}
+            label="Volume"
+            icon={muted ? 'speakerMuted' : 'speaker'}
+            active={active}
+            onSend={(v) => send('volume', v)}
+          />
+          <button
+            type="button"
+            onClick={() => send('mute', 'toggle')}
+            disabled={!a.available}
+            title={muted ? 'Unmute' : 'Mute'}
+            aria-label={muted ? 'Unmute' : 'Mute'}
+            aria-pressed={muted}
+            className={`grid h-6 w-6 shrink-0 place-items-center rounded-full transition-colors disabled:opacity-30 ${focusRing} ${
+              muted ? 'bg-rose-500 text-white' : 'bg-white/[0.12] text-white/75 hover:bg-white/20 hover:text-white'
+            }`}
+          >
+            <Icon name="speakerMuted" size={13} />
+          </button>
+        </div>
+      )}
       {open && (
         <div
           ref={listRef}
           role="radiogroup"
           aria-label="Sound output"
-          className="ml-9 flex flex-col rounded-lg bg-white/6 p-1"
+          className={`flex flex-col rounded-xl bg-black/30 p-1 ${withVolume ? 'mt-1.5' : ''}`}
           onKeyDown={(e) => {
             if (e.key === 'Escape') {
               e.stopPropagation()
@@ -371,26 +391,49 @@ function OutputPicker({ s, active }) {
           ))}
         </div>
       )}
-    </div>
+    </Module>
   )
 }
 
-// One Quick Settings tile. style: 'both' (icon over label), 'icon' (square, label as tooltip) or
-// 'label' (text pill). on: true/false for toggles, undefined for tiles without a state. unavailable:
-// a reason string dims the tile and makes it do nothing. link: opens a Settings page (small arrow).
+// The round button of a control: accent blue when on, translucent white otherwise. A link (opens a
+// Settings page) gets a small arrow on its edge.
+function Bubble({ icon, on, off, link, size }) {
+  const look = off ? 'bg-white/[0.06] text-white/30' : on ? 'bg-accent text-white' : 'bg-white/[0.13] text-white/85'
+  return (
+    <span className={`relative grid shrink-0 place-items-center rounded-full transition-colors ${look}`} style={{ width: size, height: size }}>
+      <Icon name={icon} size={size > 30 ? 16 : 14} />
+      {link && !off && (
+        <span className="absolute -top-0.5 -right-0.5 grid h-3 w-3 place-items-center rounded-full bg-neutral-700 text-white/80">
+          <Icon name="arrowUpRight" size={7} strokeWidth={2.2} />
+        </span>
+      )}
+    </span>
+  )
+}
+
+// One control of the grid. style: 'both' (round button over a label, like the Mac's small modules),
+// 'icon' (round button, label as tooltip) or 'label' (text pill). on: true/false for toggles,
+// undefined for actions. unavailable: a reason string dims it and makes it do nothing.
 function Tile({ style, name, icon, on, unavailable, link, title, onClick }) {
   const off = !!unavailable
   const tip = unavailable || title || name
-  const hint = link && !off
-  const look = on
-    ? 'bg-accent text-white hover:bg-accent/85'
-    : 'bg-white/8 text-white/80 hover:bg-white/14 hover:text-white'
-  const shape =
-    style === 'icon'
-      ? 'relative grid h-9 w-9 place-items-center rounded-lg'
-      : style === 'label'
-        ? 'flex h-7 items-center gap-1 rounded-full px-3 text-[11px] font-medium'
-        : 'relative flex h-[54px] min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 pt-0.5'
+  if (style === 'label') {
+    return (
+      <button
+        type="button"
+        onClick={off ? undefined : onClick}
+        aria-disabled={off || undefined}
+        aria-pressed={on === undefined || link ? undefined : on}
+        title={tip}
+        className={`flex h-7 items-center gap-1 rounded-full px-3 text-[11px] font-medium transition-colors ${focusRing} ${
+          off ? 'cursor-default bg-white/5 text-white/30' : on ? 'bg-accent text-white' : 'bg-white/[0.1] text-white/85 hover:bg-white/[0.16]'
+        }`}
+      >
+        {name}
+        {link && !off && <Icon name="chevronRight" size={10} strokeWidth={2} className="-mr-1 opacity-60" />}
+      </button>
+    )
+  }
   return (
     <button
       type="button"
@@ -398,25 +441,40 @@ function Tile({ style, name, icon, on, unavailable, link, title, onClick }) {
       aria-disabled={off || undefined}
       aria-pressed={on === undefined || link ? undefined : on}
       aria-label={style === 'icon' || off ? `${name}${off ? ', ' + unavailable : ''}` : undefined}
-      title={style === 'icon' || off || title ? tip : undefined}
-      className={`${shape} transition-colors ${focusRing} ${off ? 'cursor-default bg-white/5 text-white/30' : look}`}
+      title={tip}
+      className={`group flex min-w-0 flex-col items-center gap-1 rounded-xl py-0.5 transition-colors ${focusRing} ${
+        off ? 'cursor-default' : 'hover:bg-white/[0.06]'
+      }`}
     >
-      {style !== 'label' && <Icon name={icon} />}
+      <Bubble icon={icon} on={on} off={off} link={link} size={style === 'icon' ? 34 : 32} />
       {style === 'both' && (
-        <span className="line-clamp-2 w-full text-center text-[10px] leading-[1.15] font-medium">{name}</span>
+        <span className={`line-clamp-2 w-full px-0.5 text-center text-[9.5px] leading-[1.15] ${off ? 'text-white/30' : 'text-white/70'}`}>
+          {name}
+        </span>
       )}
-      {style === 'label' && name}
-      {hint &&
-        (style === 'label' ? (
-          <Icon name="chevronRight" size={10} strokeWidth={2} className="-mr-1 opacity-60" />
-        ) : (
-          <Icon
-            name="arrowUpRight"
-            size={style === 'icon' ? 7 : 8}
-            strokeWidth={2}
-            className={`absolute opacity-55 ${style === 'icon' ? 'top-1 right-1' : 'top-1.5 right-1.5'}`}
-          />
-        ))}
+    </button>
+  )
+}
+
+// A connectivity row (Wi-Fi, Bluetooth, ...): round button, name and a status line.
+function ConnectionRow({ name, icon, on, unavailable, onClick }) {
+  const off = !!unavailable
+  return (
+    <button
+      type="button"
+      onClick={off ? undefined : onClick}
+      aria-disabled={off || undefined}
+      aria-pressed={off ? undefined : on}
+      title={unavailable || undefined}
+      className={`flex w-full items-center gap-2.5 rounded-xl p-1 text-left transition-colors ${focusRing} ${
+        off ? 'cursor-default' : 'hover:bg-white/[0.06]'
+      }`}
+    >
+      <Bubble icon={icon} on={on} off={off} size={28} />
+      <span className="min-w-0 flex-1">
+        <span className={`block truncate text-[11.5px] leading-tight font-semibold ${off ? 'text-white/35' : 'text-white/90'}`}>{name}</span>
+        <span className="block truncate text-[10px] leading-tight text-white/45">{off ? 'Not available' : on ? 'On' : 'Off'}</span>
+      </span>
     </button>
   )
 }
@@ -526,7 +584,7 @@ function useSleepConfirm(active) {
 
 function Tiles({ items, s, style, sleep }) {
   return (
-    <div className={style === 'both' ? 'grid grid-cols-4 gap-1.5' : 'flex flex-wrap gap-1.5'}>
+    <div className={style === 'label' ? 'flex flex-wrap gap-1.5' : style === 'icon' ? 'grid grid-cols-6 gap-1' : 'grid grid-cols-6 gap-x-0.5 gap-y-0.5'}>
       {items.map((it) => {
         const t = tileFor(it.id, s, sleep)
         if (!t) return null
@@ -548,55 +606,65 @@ function Tiles({ items, s, style, sleep }) {
   )
 }
 
-const ROWS = {
-  volume: VolumeControl,
-  brightness: BrightnessControl,
-  output: OutputPicker
+function ConnectivityModule({ items, s, sleep }) {
+  return (
+    <Module>
+      {/* Two columns once there are three or more, like the Mac's connectivity block. */}
+      <div className={items.length > 2 ? 'grid grid-cols-2 gap-0.5' : 'flex flex-col gap-0.5'}>
+        {items.map((it) => {
+          const t = tileFor(it.id, s, sleep)
+          if (!t) return null
+          return (
+            <ConnectionRow
+              key={it.id}
+              name={it.name}
+              icon={SYSTEM_ICONS[it.id]}
+              on={t.on}
+              unavailable={t.unavailable}
+              onClick={t.onClick}
+            />
+          )
+        })}
+      </div>
+    </Module>
+  )
 }
 
-// Consecutive tiles share one grid; sliders and the output picker take a line each.
-function groupControls(items) {
-  const out = []
-  for (const it of items) {
-    const last = out[out.length - 1]
-    if (ROWS[it.id]) out.push(it)
-    else if (Array.isArray(last)) last.push(it)
-    else out.push([it])
-  }
-  return out
-}
+const columnClass = 'scroll-thin -my-1 flex min-w-0 flex-col gap-1.5 overflow-y-auto py-1'
 
 export function SystemPanel({ system, settings, active }) {
   const sleep = useSleepConfirm(active)
   const hidden = new Set(settings?.system?.hidden || [])
   const style = settings?.system?.controlStyle || 'both'
   const shown = sortByOrder(SYSTEM_ITEMS, settings?.system?.order).filter((it) => !hidden.has(it.id))
-  const meters = shown.filter((it) => it.kind === 'meter' && METERS[it.id])
-  const controls = groupControls(shown.filter((it) => isSystemControl(it)))
+  const has = (id) => shown.some((it) => it.id === id)
+  const meters = shown.filter((it) => it.kind === 'meter')
+  const connections = shown.filter((it) => CONNECTIVITY.has(it.id))
+  const tiles = shown.filter((it) => isSystemControl(it) && !CONNECTIVITY.has(it.id) && !['volume', 'brightness', 'output'].includes(it.id))
   const props = { s: system, active }
-  if (!meters.length && !controls.length) return <p className="text-xs text-white/45">Nothing to show</p>
+  const left = connections.length > 0 || meters.length > 0
+  const right = has('brightness') || has('volume') || has('output') || tiles.length > 0
+  if (!left && !right) return <p className="text-xs text-white/45">Nothing to show</p>
 
   return (
-    <div className="flex items-stretch">
-      {meters.length > 0 && (
-        <div className="flex shrink-0 flex-col justify-center gap-1" style={{ width: METERS_W }}>
-          {meters.map((it) => {
-            const M = METERS[it.id]
-            return <M key={it.id} {...props} />
-          })}
+    <div className="flex items-start gap-3">
+      {left && (
+        <div className={`${columnClass} shrink-0`} style={{ width: right ? LEFT_W : '100%', maxHeight: MAX_H }}>
+          {connections.length > 0 && <ConnectivityModule items={connections} s={system} sleep={sleep} />}
+          {meters.length > 0 && <StatsModule items={meters} props={props} />}
         </div>
       )}
-      {meters.length > 0 && controls.length > 0 && <div className="mx-4 w-px shrink-0 bg-white/10" />}
-      <div
-        className="scroll-thin -my-1 -mr-2 -ml-1 flex min-w-0 flex-1 flex-col gap-1.5 overflow-y-auto py-1 pr-2 pl-1"
-        style={{ maxHeight: CONTROLS_MAX_H }}
-      >
-        {controls.map((g) => {
-          if (Array.isArray(g)) return <Tiles key={g[0].id} items={g} s={system} style={style} sleep={sleep} />
-          const C = ROWS[g.id]
-          return <C key={g.id} {...props} />
-        })}
-      </div>
+      {right && (
+        <div className={`${columnClass} flex-1 pr-1`} style={{ maxHeight: MAX_H }}>
+          {has('brightness') && <DisplayModule {...props} />}
+          {(has('volume') || has('output')) && <SoundModule {...props} withVolume={has('volume')} withOutput={has('output')} />}
+          {tiles.length > 0 && (
+            <Module>
+              <Tiles items={tiles} s={system} style={style} sleep={sleep} />
+            </Module>
+          )}
+        </div>
+      )}
     </div>
   )
 }

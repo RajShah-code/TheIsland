@@ -283,7 +283,7 @@ function SystemSection({ view, save }) {
   return (
     <>
       <Card>
-        <Row id="system-style" label="Control buttons" help="Icon and label, icon only (the name shows on hover) or label only.">
+        <Row id="system-style" label="Control buttons" help="The round buttons of the grid: with a label under them, icon only (the name shows on hover), or text only.">
           <Segmented
             labelledBy="system-style"
             value={controlStyle}
@@ -292,7 +292,7 @@ function SystemSection({ view, save }) {
           />
         </Row>
       </Card>
-      <Card title="Meters" help="The left column. Stats are only sampled while the System tab is open.">
+      <Card title="Activity" help="The rings and rates under Wi-Fi and Bluetooth. Stats are only sampled while the System tab is open.">
         <ReorderList
           label="System meters"
           items={meters}
@@ -303,7 +303,7 @@ function SystemSection({ view, save }) {
       </Card>
       <Card
         title="Controls"
-        help="The right column, like Windows Quick Settings. Sliders take a full line; neighbouring buttons share a grid."
+        help="Laid out like the Mac's Control Center: Wi-Fi, Bluetooth, airplane mode and hotspot get their own block, brightness and volume their own sliders, and the rest share a grid of round buttons, in this order."
       >
         <ReorderList
           label="System controls"

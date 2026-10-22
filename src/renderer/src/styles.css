@@ -126,28 +126,29 @@ body,
     visibility 0s linear 120ms;
 }
 
-/* System tab sliders. --val (set from React) fills the track up to the thumb. Nothing animates. */
-.island-range {
+/* System tab sliders, Mac style: a thick rounded track filled up to the thumb's centre (--fill, set
+   from React). The thumb is as tall as the track. Nothing animates. */
+.mac-range {
   appearance: none;
-  height: 16px;
-  background: transparent;
+  height: 24px;
+  border-radius: 12px;
+  background: linear-gradient(to right, rgb(255 255 255 / 0.92) var(--fill, 12px), rgb(255 255 255 / 0.14) var(--fill, 12px));
   cursor: pointer;
 }
-.island-range::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(to right, rgb(255 255 255 / 0.8) var(--val, 0%), rgb(255 255 255 / 0.12) var(--val, 0%));
+.mac-range::-webkit-slider-runnable-track {
+  height: 24px;
 }
-.island-range::-webkit-slider-thumb {
+.mac-range::-webkit-slider-thumb {
   appearance: none;
-  width: 12px;
-  height: 12px;
-  margin-top: -4px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: #fff;
+  box-shadow:
+    0 0 0 0.5px rgb(0 0 0 / 0.25),
+    0 1px 4px rgb(0 0 0 / 0.5);
 }
-.island-range:disabled {
-  opacity: 0.3;
+.mac-range:disabled {
   cursor: default;
 }
 
