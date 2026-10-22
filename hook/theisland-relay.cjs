@@ -3,7 +3,7 @@
 //
 // Claude Code runs this for each hook event (registered in ~/.claude/settings.json by the
 // installer). It reads the event JSON from stdin and forwards a trimmed copy to the TheIsland app
-// over 127.0.0.1, authenticated with the token in %APPDATA%\TheIsland\relay.json.
+// over 127.0.0.1, authenticated with the token in %USERPROFILE%\.theisland\relay.json.
 //
 // Rules:
 // - If the app is not running (no relay.json, connection refused, any error) it exits 0 with no
@@ -20,7 +20,8 @@ const http = require('http')
 const os = require('os')
 
 const startedAt = Date.now()
-const dir = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'TheIsland')
+// Not %APPDATA%, which a packaged app like the Claude desktop app sees a private copy of.
+const dir = path.join(os.homedir(), '.theisland')
 const MAX_STDIN = 4 * 1024 * 1024
 const MAX_FIELD = 4000
 

@@ -1,18 +1,17 @@
 // Setting and removing the calendar ICS address. Shared by the tray and the settings window, which
 // each show the result their own way. The address itself never leaves the main process.
 import { clipboard } from 'electron'
-import { getConfig, setSecret } from './config'
+import { getSecret, setSecret } from './config'
 import { log } from './log'
 
+// Checks the decrypted value, so an address that can no longer be decrypted counts as not set.
 export function hasCalendarUrl() {
-  return !!getConfig().calendarUrl
+  return !!getSecret('calendarUrl')
 }
 
-// Reads the copied address, checks it, saves it encrypted and clears the clipboard.
-// Returns { ok: true } or { ok: false, error }.
-export async function setCalendarFromClipboard() {
-  // readText() returns a Promise in this Electron version.
-  const url = String((await clipboard.readText()) || '').trim()
+// Checks the address and saves it encrypted. Returns { ok: true } or { ok: false, error }.
+export function setCalendarUrl(text) {
+  const url = String(text || '').trim()
   let ok = false
   try {
     const u = new URL(url)
@@ -22,8 +21,8 @@ export async function setCalendarFromClipboard() {
     return {
       ok: false,
       error:
-        'Copy the "Secret address in iCal format" from Google Calendar settings first. ' +
-        'It starts with https:// and ends with .ics.'
+        'That is not an iCal address. Use the "Secret address in iCal format" from Google Calendar ' +
+        'settings. It starts with https:// and ends with .ics.'
     }
   }
   try {
@@ -31,9 +30,16 @@ export async function setCalendarFromClipboard() {
   } catch (e) {
     return { ok: false, error: 'Calendar not saved: ' + e.message }
   }
-  clipboard.clear()
   log('calendar url set')
   return { ok: true }
+}
+
+// Same, reading the copied address. Clears the clipboard once it is saved.
+export async function setCalendarFromClipboard() {
+  // readText() returns a Promise in this Electron version.
+  const r = setCalendarUrl(await clipboard.readText())
+  if (r.ok) clipboard.clear()
+  return r
 }
 
 export function removeCalendarUrl() {

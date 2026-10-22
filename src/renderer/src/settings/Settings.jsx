@@ -428,12 +428,15 @@ const btn =
 function CalendarSection({ view, setView }) {
   const [msg, setMsg] = useState(null)
   const [busy, setBusy] = useState(false)
-  const set = async () => {
+  const [url, setUrl] = useState('')
+  // With no address, the main process reads the clipboard instead.
+  const set = async (address) => {
     setBusy(true)
-    const r = await api.setCalendar()
+    const r = await api.setCalendar(address)
     setBusy(false)
     if (!r) return
     setView(r.view)
+    if (r.ok) setUrl('')
     setMsg(r.ok ? { ok: true, text: 'Calendar saved. Events appear after the first fetch.' } : { ok: false, text: r.error })
   }
   const remove = async () => {
@@ -446,7 +449,7 @@ function CalendarSection({ view, setView }) {
       <Card>
         <Row
           label="Google Calendar"
-          help={view.calendarConfigured ? 'Connected. Refreshed every 15 minutes.' : 'Not set yet.'}
+          help={view.calendarConfigured ? 'Connected and saved. Refreshed every 15 minutes.' : 'Not set yet.'}
         >
           <span
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
@@ -460,11 +463,37 @@ function CalendarSection({ view, setView }) {
           <ol className="list-decimal space-y-1 pl-4 text-[12px] leading-snug text-white/55">
             <li>In Google Calendar, open Settings and pick your calendar.</li>
             <li>Copy the "Secret address in iCal format".</li>
-            <li>Press the button below. The address is stored encrypted and the clipboard is cleared.</li>
+            <li>Paste it below and press Save. It is stored encrypted and kept until you remove it.</li>
           </ol>
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button type="button" onClick={set} disabled={busy} className={`${btn} bg-accent text-white hover:bg-[#2b95ff]`}>
-              Set from copied iCal address
+          <form
+            className="flex items-center gap-2 pt-1"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (url.trim()) set(url)
+            }}
+          >
+            <input
+              type="password"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder={view.calendarConfigured ? 'Paste a new address to replace it' : 'https://calendar.google.com/...basic.ics'}
+              aria-label="Secret iCal address"
+              autoComplete="off"
+              spellCheck={false}
+              className="min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-black/30 px-3 py-1.5 text-[13px] text-white placeholder:text-white/30"
+            />
+            <button type="submit" disabled={busy || !url.trim()} className={`${btn} bg-accent text-white hover:bg-[#2b95ff]`}>
+              Save
+            </button>
+          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => set()}
+              disabled={busy}
+              className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12]`}
+            >
+              Use copied address
             </button>
             <button
               type="button"
@@ -497,7 +526,7 @@ function AboutSection({ view }) {
         label="Footprint"
         help="At rest the island uses about 120 to 200 MB of memory and close to 0% CPU. This window exists only while it is open, so closing it gives its memory back."
       />
-      <Row label="Settings file" help="Saved in %APPDATA%\TheIsland\config.json. The calendar address is encrypted with Windows DPAPI." />
+      <Row label="Settings file" help="Saved in %USERPROFILE%\.theisland\config.json. The calendar address is encrypted with Windows DPAPI." />
     </Card>
   )
 }

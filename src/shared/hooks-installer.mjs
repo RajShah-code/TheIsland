@@ -35,25 +35,41 @@ export function defaultSettingsPath() {
   return path.join(os.homedir(), '.claude', 'settings.json')
 }
 
-export function appDataDir() {
+// %USERPROFILE%\.theisland holds everything: settings, relay.json, the hook script, the log and
+// Chromium's own files. Not %APPDATA%: a process started from a packaged (MSIX) app such as the
+// Claude desktop app gets a private copy of AppData, so an island started from there and one
+// started at login would each see different settings, and hooks run by the desktop app would read
+// a stale relay.json. The user profile itself is shared by both.
+export function dataDir() {
+  return path.join(os.homedir(), '.theisland')
+}
+
+// Where older versions kept their data. Only read for the one-time move and old hook entries.
+export function legacyDataDir() {
   return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'TheIsland')
 }
 
 export function relayInstallPath() {
-  return path.join(appDataDir(), RELAY_FILE)
+  return path.join(dataDir(), RELAY_FILE)
 }
 
-// Copies the relay into %APPDATA%\TheIsland so the hook path stays stable even if this
-// project folder moves. Only rewrites when the content changed.
+// Copies the relay into the data folder so the hook path stays stable even if this project folder
+// moves. Only rewrites when the content changed. Hook entries from older versions point at the old
+// copy in %APPDATA%, so that one is kept current too until the hooks are updated.
 export function installRelayFile(sourcePath) {
-  const dest = relayInstallPath()
   const src = fs.readFileSync(sourcePath)
-  fs.mkdirSync(path.dirname(dest), { recursive: true })
-  let same = false
-  try {
-    same = fs.readFileSync(dest).equals(src)
-  } catch {}
-  if (!same) fs.writeFileSync(dest, src)
+  const write = (dest) => {
+    fs.mkdirSync(path.dirname(dest), { recursive: true })
+    let same = false
+    try {
+      same = fs.readFileSync(dest).equals(src)
+    } catch {}
+    if (!same) fs.writeFileSync(dest, src)
+  }
+  const legacy = path.join(legacyDataDir(), RELAY_FILE)
+  if (fs.existsSync(legacy)) write(legacy)
+  const dest = relayInstallPath()
+  write(dest)
   return dest
 }
 
@@ -166,14 +182,17 @@ export function isInstalled(settingsPath = defaultSettingsPath()) {
   }
 }
 
-// True when every event in EVENTS has our handler. An install from an older version can miss some
-// (SubagentStart and SubagentStop were added later); installing again adds them.
+// True when every event in EVENTS has our handler and it runs the relay in the data folder. An
+// install from an older version can miss some (SubagentStart and SubagentStop were added later) or
+// point at the old %APPDATA% copy; installing again fixes both.
 export function isUpToDate(settingsPath = defaultSettingsPath()) {
+  const current = (h) =>
+    isOurHandler(h) && Array.isArray(h.args) && h.args.some((a) => path.resolve(String(a)) === relayInstallPath())
   try {
     const { data } = readSettings(settingsPath)
     const hooks = data.hooks || {}
     return EVENTS.every((ev) =>
-      (hooks[ev.name] || []).some((g) => Array.isArray(g.hooks) && g.hooks.some(isOurHandler))
+      (hooks[ev.name] || []).some((g) => Array.isArray(g.hooks) && g.hooks.some(current))
     )
   } catch {
     return false

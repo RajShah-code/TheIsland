@@ -1,4 +1,4 @@
-// User settings in %APPDATA%\TheIsland\config.json. Secrets (the calendar URL) are encrypted
+// User settings in %USERPROFILE%\.theisland\config.json. Secrets (the calendar URL) are encrypted
 // with Windows DPAPI through Electron's safeStorage, so the file alone doesn't reveal them.
 // The shape of the user-facing settings lives in src/shared/settings-model.mjs; changes from the
 // settings window go through updateSettings(), which validates, clamps and drops unknown keys.

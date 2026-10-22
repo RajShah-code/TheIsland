@@ -2,10 +2,10 @@ import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { app, globalShortcut, ipcMain, shell } from 'electron'
-import { installRelayFile } from '../shared/hooks-installer.mjs'
+import { dataDir, installRelayFile, legacyDataDir } from '../shared/hooks-installer.mjs'
 import { createClaudeHub } from './claude'
 import { startCalendar } from './calendar'
-import { hasCalendarUrl, removeCalendarUrl, setCalendarFromClipboard } from './calendar-url'
+import { hasCalendarUrl, removeCalendarUrl, setCalendarFromClipboard, setCalendarUrl } from './calendar-url'
 import { getSecret, getSettings, updateSettings } from './config'
 import { goodbyeText, greetingText } from './greeting'
 import { log } from './log'
@@ -16,6 +16,7 @@ import { createTray } from './tray'
 import { createPointerTracker } from './pointer'
 import { createIslandWindow } from './window'
 
+useDataDir()
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
@@ -25,6 +26,24 @@ if (!app.requestSingleInstanceLock()) {
   // A small 2D overlay doesn't need the GPU; software rendering saves ~100 MB.
   if (!process.env.ISLAND_GPU) app.disableHardwareAcceleration()
   app.whenReady().then(start)
+}
+
+// Keeps all data in %USERPROFILE%\.theisland (see dataDir() for why not %APPDATA%). Runs before the
+// single instance lock, which lives in that folder too. The first time, the settings move over from
+// the old folder with Chromium's "Local State", which holds the key the calendar address is
+// encrypted with.
+function useDataDir() {
+  const dir = dataDir()
+  try {
+    if (!fs.existsSync(path.join(dir, 'config.json'))) {
+      fs.mkdirSync(dir, { recursive: true })
+      for (const name of ['config.json', 'Local State']) {
+        const from = path.join(legacyDataDir(), name)
+        if (fs.existsSync(from)) fs.copyFileSync(from, path.join(dir, name))
+      }
+    }
+  } catch {}
+  app.setPath('userData', dir)
 }
 
 // Hides the whole island until pressed again (also in the tray menu).
@@ -280,9 +299,10 @@ function start() {
     settingsChanged()
     return settingsView()
   })
-  ipcMain.handle('settings:calendar-set', async (e) => {
+  // With an address typed or pasted into the settings window, or without one to read the clipboard.
+  ipcMain.handle('settings:calendar-set', async (e, url) => {
     if (!settingsWin.isSender(e)) return null
-    const r = await setCalendarFromClipboard()
+    const r = typeof url === 'string' ? setCalendarUrl(url) : await setCalendarFromClipboard()
     if (r.ok) calendarChanged()
     return { ok: r.ok, error: r.error || null, view: settingsView() }
   })

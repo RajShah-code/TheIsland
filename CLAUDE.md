@@ -17,6 +17,13 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
 
 ## Layout
 
+- All data (settings, relay.json, the hook script, log, Chromium files) lives in `%USERPROFILE%\.theisland`,
+  set as `userData` before anything else (`useDataDir()` in `index.js`, path from `dataDir()` in
+  `hooks-installer.mjs`). Not `%APPDATA%`: processes started from the Claude desktop app (MSIX) get a private
+  copy of AppData, so `npm start` from there and the login-started island saw different settings and hooks
+  read a stale relay.json. The first start copies `config.json` and `Local State` (the DPAPI-wrapped key)
+  over from `%APPDATA%\TheIsland`.
+
 - `src/main/` (Electron main process)
   - `index.js` wires everything; `island:*` IPC handlers only accept the island window, `settings:*` only the
     settings window. Every settings change goes through `settingsChanged()`: saves, pushes `island:settings`
@@ -31,14 +38,15 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
     windows and cost 15 to 25% of a core. No polling while hidden; while interactive the renderer uses
     real mouse events and only a guard runs (cursor outside for 500 ms: mouse handed back). The renderer
     feeds both sources into one handler (`src/renderer/src/pointer.js`, also used by the buddy's eyes).
-  - `relay-server.js` 127.0.0.1 HTTP, random port, token in `%APPDATA%\TheIsland\relay.json`, rejects
+  - `relay-server.js` 127.0.0.1 HTTP, random port, token in `%USERPROFILE%\.theisland\relay.json`, rejects
     requests with an Origin header. Only `POST /event`. Approvals are answered over IPC, never HTTP.
   - `claude.js` sessions and pending approvals from hook events (memory only).
   - `helper.js` runs `resources/island-helper.exe` (music events + fullscreen on/off) and reads its JSON lines.
-  - `calendar.js` fetches the ICS URL every 15 min (and on resume), parses with `ical.js`.
+  - `calendar.js` fetches the ICS URL every 15 min (and on resume, and every minute after a failure), parses with `ical.js`.
   - `config.js` settings; `getSettings()` / `updateSettings(patch)` validate through the shared model. The
     calendar URL is encrypted with `safeStorage` (DPAPI) and never sent to a renderer.
-  - `calendar-url.js` set the calendar from the clipboard / remove it (used by the tray and settings window).
+  - `calendar-url.js` set the calendar from a pasted address or the clipboard / remove it (tray and settings window).
+    The settings window sends the address in; it is never sent back out.
   - `tray.js` Settings..., hide switch, approvals switch, hook install/remove, calendar URL, quit.
 - `src/shared/hooks-installer.mjs` safe installer used by both the tray and `scripts/hooks.mjs`.
 - `src/shared/settings-model.mjs` the settings model: defaults, `normalizeSettings` (clamps, drops unknown
@@ -47,7 +55,7 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
   `widgets { order, hidden }`, `system { order, hidden, controlStyle }`, `claude { buddy }`, `island { ghostOpacity }`.
   Start with Windows is a `TheIsland.lnk` in the user's Startup folder (not stored); the Run registry entry
   Electron's login item writes was never launched by Explorer on this machine.
-- `hook/theisland-relay.cjs` the script Claude Code runs. Copied to `%APPDATA%\TheIsland` at app start so
+- `hook/theisland-relay.cjs` the script Claude Code runs. Copied to `%USERPROFILE%\.theisland` at app start so
   the hook path doesn't depend on this folder. No dependencies, exits 0 silently on any problem.
 - `helper/IslandHelper.cs` tiny C# program: Windows media sessions (events) and fullscreen detection (one
   cheap check per second, reports changes only). Built by `scripts/build-helper.mjs`

@@ -5,7 +5,7 @@
 // - Requests with an Origin header are rejected, so a web page in a browser can't talk to it.
 // - Only one endpoint: POST /event. Approvals are answered through Electron IPC from the island
 //   window, never over HTTP, so no other local process can approve anything.
-// - relay.json lives in %APPDATA%\TheIsland (user-only by default) and is deleted on quit, so the
+// - relay.json lives in %USERPROFILE%\.theisland (user-only by default) and is deleted on quit, so the
 //   relay exits immediately when the app isn't running.
 import crypto from 'node:crypto'
 import fs from 'node:fs'

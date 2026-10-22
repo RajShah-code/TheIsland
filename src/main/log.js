@@ -1,4 +1,4 @@
-// Tiny size-capped log in %APPDATA%\TheIsland\island.log (rotates to island.log.1).
+// Tiny size-capped log in %USERPROFILE%\.theisland\island.log (rotates to island.log.1).
 // Lifecycle and errors only: never prompt text, commands, URLs or tokens.
 import fs from 'node:fs'
 import path from 'node:path'

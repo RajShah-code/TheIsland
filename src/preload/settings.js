@@ -5,7 +5,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('settingsApi', {
   get: () => ipcRenderer.invoke('settings:get'),
   set: (patch) => ipcRenderer.invoke('settings:set', patch),
-  setCalendar: () => ipcRenderer.invoke('settings:calendar-set'),
+  setCalendar: (url) => ipcRenderer.invoke('settings:calendar-set', url),
   removeCalendar: () => ipcRenderer.invoke('settings:calendar-remove'),
   onChange: (cb) => {
     const fn = (_e, data) => cb(data)

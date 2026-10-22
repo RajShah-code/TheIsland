@@ -83,8 +83,10 @@ function Panel() {
       <div className="mt-2.5 min-h-[44px] space-y-1">
         {!calendar.configured ? (
           <p className="text-[11px] leading-snug text-white/45">
-            No calendar yet. Copy your Google Calendar secret iCal address, then use the tray menu.
+            No calendar yet. Add your Google Calendar secret iCal address in Settings.
           </p>
+        ) : !calendar.updatedAt && list.length === 0 ? (
+          <p className="pt-1 text-center text-xs text-white/40">{calendar.error || 'Loading calendar...'}</p>
         ) : list.length === 0 ? (
           <p className="pt-1 text-center text-xs text-white/40">
             {selected === today ? 'Nothing for today' : 'Nothing this day'}

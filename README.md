@@ -42,9 +42,9 @@ There is no "Always allow": each Allow covers only the one request shown.
 ## Set up the calendar
 
 1. In Google Calendar on the web, open **Settings**, pick your calendar, and copy **Secret address in iCal format**.
-2. In the tray menu, choose **Set calendar from copied iCal address**.
+2. Open TheIsland **Settings** > **Calendar**, paste it and press **Save** (or use the tray item **Set calendar from copied iCal address**).
 
-The address is stored encrypted with Windows DPAPI in `%APPDATA%\TheIsland\config.json`, and the clipboard is cleared afterwards. The calendar refreshes every 15 minutes.
+The address is stored encrypted with Windows DPAPI in `%USERPROFILE%\.theisland\config.json` and kept until you remove it. The calendar refreshes every 15 minutes.
 
 ## Footprint
 
@@ -57,5 +57,5 @@ Measured on 2026-10-21 (Electron 44, software rendering):
 
 ## Files and privacy
 
-Everything lives in `%APPDATA%\TheIsland`: `config.json`, `relay.json` (port and token, deleted on quit), `theisland-relay.cjs` (the hook script), and a small `island.log` (capped at 256 KB, no prompt text, commands or URLs).
+Everything lives in `%USERPROFILE%\.theisland` (not `%APPDATA%`, which apps started from a packaged app such as the Claude desktop app see a private copy of): `config.json`, `relay.json` (port and token, deleted on quit), `theisland-relay.cjs` (the hook script), and a small `island.log` (capped at 256 KB, no prompt text, commands or URLs).
 No telemetry. The only network calls are to your calendar URL.

@@ -8,10 +8,14 @@ const REFRESH_MS = 15 * 60 * 1000
 const RANGE_MS = 7 * 24 * 60 * 60 * 1000
 const MAX_EVENTS = 60
 const MAX_BYTES = 5 * 1024 * 1024
+// After a failed fetch (often no network yet right after login), try again sooner than 15 min.
+const RETRY_MS = 60 * 1000
 
 export function startCalendar({ getUrl, onChange }) {
-  let state = { configured: false, events: [], error: null, updatedAt: null }
+  // Configured as soon as there is an address, so the island doesn't ask for one during the first fetch.
+  let state = { configured: !!getUrl(), events: [], error: null, updatedAt: null }
   let timer = null
+  let retry = null
   let loading = false
 
   async function refresh() {
@@ -22,6 +26,11 @@ export function startCalendar({ getUrl, onChange }) {
     }
     if (loading) return
     loading = true
+    clearTimeout(retry)
+    if (!state.configured) {
+      state = { ...state, configured: true }
+      onChange(state)
+    }
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(20000), redirect: 'follow' })
       if (!res.ok) throw new Error('HTTP ' + res.status)
@@ -33,6 +42,8 @@ export function startCalendar({ getUrl, onChange }) {
       // Keep the last good events; just flag the error.
       log('calendar refresh failed:', e && e.name === 'TimeoutError' ? 'timeout' : e && e.message)
       state = { ...state, configured: true, error: "Couldn't load calendar" }
+      retry = setTimeout(refresh, RETRY_MS)
+      retry.unref()
     } finally {
       loading = false
     }
