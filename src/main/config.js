@@ -11,7 +11,10 @@ const DEFAULTS = {
   // approvalTimeoutSec: how long the island waits for Allow/Deny before handing the prompt back to
   // the terminal. The rest is described in settings-model.mjs.
   ...DEFAULT_SETTINGS,
-  calendarUrl: null
+  calendarUrl: null,
+  googleClientId: null,
+  googleClientSecret: null,
+  googleRefreshToken: null
 }
 
 let cache = null

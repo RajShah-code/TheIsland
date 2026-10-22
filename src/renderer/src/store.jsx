@@ -7,7 +7,7 @@ const IslandContext = createContext(null)
 const EMPTY = {
   claude: { sessions: [], approvals: [] },
   media: { available: false, active: false },
-  calendar: { configured: false, events: [] },
+  calendar: { configured: false, events: [], from: 0, to: 0 },
   // Replaced by the main process's validated settings (src/shared/settings-model.mjs) on load.
   settings: DEFAULT_SETTINGS,
   fullscreen: false,

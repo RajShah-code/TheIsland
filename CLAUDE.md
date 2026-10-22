@@ -42,7 +42,14 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
     requests with an Origin header. Only `POST /event`. Approvals are answered over IPC, never HTTP.
   - `claude.js` sessions and pending approvals from hook events (memory only).
   - `helper.js` runs `resources/island-helper.exe` (music events + fullscreen on/off) and reads its JSON lines.
-  - `calendar.js` fetches the ICS URL every 15 min (and on resume, and every minute after a failure), parses with `ical.js`.
+  - `calendar.js` the calendar from one of two sources: a Google sign-in (`google-calendar.js`, preferred when
+    set, every 3 min) or the ICS URL (every 15 min, parsed with `ical.js`). Also refreshes when the island opens
+    (`touch()` on `island:interactive`; 15 s / 2 min staleness), on resume and every minute after a failure.
+    Pushes this week plus the next two (`from`, `to`, `events`); other weeks come from `week(start)` over
+    `island:calendar-week`. Weeks run Monday to Sunday (`src/shared/weeks.mjs`).
+  - `google-calendar.js` Google Calendar API with plain fetch: OAuth installed-app flow (loopback on 127.0.0.1,
+    PKCE) with the user's own Desktop client ID/secret, scope `calendar.readonly`. Client secret and refresh
+    token encrypted in config; reads the calendars ticked in Google Calendar.
   - `config.js` settings; `getSettings()` / `updateSettings(patch)` validate through the shared model. The
     calendar URL is encrypted with `safeStorage` (DPAPI) and never sent to a renderer.
   - `calendar-url.js` set the calendar from a pasted address or the clipboard / remove it (tray and settings window).

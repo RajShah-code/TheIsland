@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld('settingsApi', {
   set: (patch) => ipcRenderer.invoke('settings:set', patch),
   setCalendar: (url) => ipcRenderer.invoke('settings:calendar-set', url),
   removeCalendar: () => ipcRenderer.invoke('settings:calendar-remove'),
+  googleSignIn: (creds) => ipcRenderer.invoke('settings:google-sign-in', creds),
+  googleSignOut: () => ipcRenderer.invoke('settings:google-sign-out'),
+  openGoogleConsole: () => ipcRenderer.send('settings:open-google-console'),
   onChange: (cb) => {
     const fn = (_e, data) => cb(data)
     ipcRenderer.on('settings:changed', fn)

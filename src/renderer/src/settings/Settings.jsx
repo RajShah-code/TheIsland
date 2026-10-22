@@ -23,7 +23,7 @@ const SECTIONS = [
   { id: 'system', label: 'System tab', title: 'System tab', help: 'Which meters and controls the System tab shows, and in what order.' },
   { id: 'claude', label: 'Claude Code', title: 'Claude Code', help: 'Session status and permission prompts from Claude Code.' },
   { id: 'island', label: 'Island', title: 'Island', help: 'How the island behaves on your desktop.' },
-  { id: 'calendar', label: 'Calendar', title: 'Calendar', help: 'Your Google Calendar in the island, read from its private iCal address.' },
+  { id: 'calendar', label: 'Calendar', title: 'Calendar', help: 'Your Google Calendar in the island, through a Google sign-in or its private iCal address.' },
   { id: 'about', label: 'About', title: 'About', help: 'Version and footprint.' }
 ]
 
@@ -444,12 +444,21 @@ function CalendarSection({ view, setView }) {
     if (v) setView(v)
     setMsg({ ok: true, text: 'Calendar removed.' })
   }
+  const google = view.google?.signedIn
   return (
     <>
-      <Card>
+      <GoogleCard view={view} setView={setView} />
+      <Card
+        title="Or use the iCal address"
+        help={
+          google
+            ? 'Not used while signed in with Google.'
+            : 'No Google Cloud setup, but Google only updates this copy every few hours.'
+        }
+      >
         <Row
-          label="Google Calendar"
-          help={view.calendarConfigured ? 'Connected and saved. Refreshed every 15 minutes.' : 'Not set yet.'}
+          label="iCal address"
+          help={view.calendarConfigured ? 'Saved. Refreshed every 15 minutes.' : 'Not set yet.'}
         >
           <span
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
@@ -480,7 +489,7 @@ function CalendarSection({ view, setView }) {
               aria-label="Secret iCal address"
               autoComplete="off"
               spellCheck={false}
-              className="min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-black/30 px-3 py-1.5 text-[13px] text-white placeholder:text-white/30"
+              className={input}
             />
             <button type="submit" disabled={busy || !url.trim()} className={`${btn} bg-accent text-white hover:bg-[#2b95ff]`}>
               Save
@@ -516,6 +525,116 @@ function CalendarSection({ view, setView }) {
   )
 }
 
+const input =
+  'min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-black/30 px-3 py-1.5 text-[13px] text-white placeholder:text-white/30'
+
+// Google Calendar API sign-in. The user creates their own OAuth client once (steps below); the
+// secret is sent to the main process, stored encrypted, and never shown again.
+function GoogleCard({ view, setView }) {
+  const g = view.google || {}
+  const [clientId, setClientId] = useState(g.clientId || '')
+  const [secret, setSecret] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const signIn = async (e) => {
+    e.preventDefault()
+    setBusy(true)
+    setMsg({ ok: true, text: 'Finish signing in in your browser...' })
+    const r = await api.googleSignIn({ clientId, clientSecret: secret })
+    setBusy(false)
+    if (!r) return
+    setView(r.view)
+    if (r.ok) setSecret('')
+    setMsg(r.ok ? { ok: true, text: 'Signed in. Events load in a moment.' } : { ok: false, text: r.error })
+  }
+  const signOut = async () => {
+    const v = await api.googleSignOut()
+    if (v) setView(v)
+    setMsg({ ok: true, text: 'Signed out.' })
+  }
+  return (
+    <Card title="Google account" help="Reads your calendars directly, so changes show up within seconds of opening the island.">
+      <Row label="Google Calendar" help={g.signedIn ? 'Signed in. Checked every 3 minutes and whenever the island opens.' : 'Not signed in.'}>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+            g.signedIn ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/[0.08] text-white/50'
+          }`}
+        >
+          {g.signedIn ? 'Signed in' : 'Not signed in'}
+        </span>
+      </Row>
+      <div className="space-y-3 px-4 py-4">
+        {g.signedIn ? (
+          <button type="button" onClick={signOut} className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12]`}>
+            Sign out
+          </button>
+        ) : (
+          <>
+            <ol className="list-decimal space-y-1 pl-4 text-[12px] leading-snug text-white/55">
+              <li>
+                In Google Cloud Console, create a project and enable the <b className="text-white/75">Google Calendar API</b>.
+              </li>
+              <li>
+                Under <b className="text-white/75">Google Auth Platform</b>, set up the consent screen (External) and add
+                yourself as a test user, or publish the app so sign-in doesn't expire every 7 days.
+              </li>
+              <li>
+                Under <b className="text-white/75">Clients</b>, create a client of type <b className="text-white/75">Desktop app</b>{' '}
+                and paste its ID and secret here.
+              </li>
+            </ol>
+            <button
+              type="button"
+              onClick={() => api.openGoogleConsole()}
+              className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12]`}
+            >
+              Open Google Cloud Console
+            </button>
+            <form className="space-y-2" onSubmit={signIn}>
+              <div className="flex gap-2">
+                <input
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  placeholder="Client ID (...apps.googleusercontent.com)"
+                  aria-label="Client ID"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className={input}
+                />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={secret}
+                  onChange={(e) => setSecret(e.target.value)}
+                  placeholder="Client secret"
+                  aria-label="Client secret"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className={input}
+                />
+                <button
+                  type="submit"
+                  disabled={busy || !clientId.trim() || !secret.trim()}
+                  className={`${btn} bg-accent text-white hover:bg-[#2b95ff]`}
+                >
+                  Sign in with Google
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+        <p
+          aria-live="polite"
+          className={`min-h-[18px] text-[12px] ${msg ? (msg.ok ? 'text-white/55' : 'text-amber-300/90') : ''}`}
+        >
+          {msg?.text}
+        </p>
+      </div>
+    </Card>
+  )
+}
+
 function AboutSection({ view }) {
   return (
     <Card>
@@ -526,7 +645,7 @@ function AboutSection({ view }) {
         label="Footprint"
         help="At rest the island uses about 120 to 200 MB of memory and close to 0% CPU. This window exists only while it is open, so closing it gives its memory back."
       />
-      <Row label="Settings file" help="Saved in %USERPROFILE%\.theisland\config.json. The calendar address is encrypted with Windows DPAPI." />
+      <Row label="Settings file" help="Saved in %USERPROFILE%\.theisland\config.json. The calendar address and Google sign-in are encrypted with Windows DPAPI." />
     </Card>
   )
 }

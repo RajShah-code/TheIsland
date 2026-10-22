@@ -7,6 +7,7 @@ import { createClaudeHub } from './claude'
 import { startCalendar } from './calendar'
 import { hasCalendarUrl, removeCalendarUrl, setCalendarFromClipboard, setCalendarUrl } from './calendar-url'
 import { getSecret, getSettings, updateSettings } from './config'
+import { googleClientId, isGoogleSignedIn, signInGoogle, signOutGoogle } from './google-calendar'
 import { goodbyeText, greetingText } from './greeting'
 import { log } from './log'
 import { startHelper } from './helper'
@@ -184,8 +185,13 @@ function start() {
     onFullscreen: (on) => send('island:fullscreen', on),
     onSystem: (s) => send('island:system', s)
   })
+  // A Google sign-in wins over the iCal address when both are set.
   const calendar = startCalendar({
-    getUrl: () => getSecret('calendarUrl'),
+    getSource: () => {
+      if (isGoogleSignedIn()) return { kind: 'google' }
+      const url = getSecret('calendarUrl')
+      return url ? { kind: 'ics', url } : null
+    },
     onChange: (c) => send('island:calendar', c)
   })
   // The island gets the validated settings (no secrets). The settings window also gets a few facts it
@@ -197,6 +203,7 @@ function start() {
       ...s,
       island: { ...s.island, startWithWindows: startsWithWindows() },
       calendarConfigured: hasCalendarUrl(),
+      google: { signedIn: isGoogleSignedIn(), clientId: googleClientId() || '' },
       version: app.getVersion()
     }
   }
@@ -265,6 +272,7 @@ function start() {
         }
       : null
   )
+  ipcMain.handle('island:calendar-week', (e, start) => (fromIsland(e) ? calendar.week(Number(start)) : null))
   ipcMain.on('island:decide', (e, id, decision) => {
     if (fromIsland(e) && typeof id === 'string') hub.decide(id, decision)
   })
@@ -283,7 +291,9 @@ function start() {
     updateSystemWatch()
   })
   ipcMain.on('island:interactive', (e, on) => {
-    if (fromIsland(e)) pointer.setInteractive(on === true)
+    if (!fromIsland(e)) return
+    pointer.setInteractive(on === true)
+    if (on === true) calendar.touch()
   })
   ipcMain.on('island:open-settings', (e) => {
     if (fromIsland(e)) settingsWin.open()
@@ -305,6 +315,21 @@ function start() {
     const r = typeof url === 'string' ? setCalendarUrl(url) : await setCalendarFromClipboard()
     if (r.ok) calendarChanged()
     return { ok: r.ok, error: r.error || null, view: settingsView() }
+  })
+  ipcMain.handle('settings:google-sign-in', async (e, creds) => {
+    if (!settingsWin.isSender(e) || !isPlainObject(creds)) return null
+    const r = await signInGoogle({ clientId: creds.clientId, clientSecret: creds.clientSecret })
+    if (r.ok) calendarChanged()
+    return { ok: r.ok, error: r.error || null, view: settingsView() }
+  })
+  ipcMain.handle('settings:google-sign-out', async (e) => {
+    if (!settingsWin.isSender(e)) return null
+    await signOutGoogle()
+    calendarChanged()
+    return settingsView()
+  })
+  ipcMain.on('settings:open-google-console', (e) => {
+    if (settingsWin.isSender(e)) shell.openExternal('https://console.cloud.google.com/apis/library/calendar-json.googleapis.com')
   })
   ipcMain.handle('settings:calendar-remove', (e) => {
     if (!settingsWin.isSender(e)) return null

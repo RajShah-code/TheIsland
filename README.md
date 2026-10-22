@@ -41,6 +41,14 @@ There is no "Always allow": each Allow covers only the one request shown.
 
 ## Set up the calendar
 
+Two ways. **Google sign-in** reads your calendars directly, so a change shows up within seconds of opening the
+island. It needs a one-time Google Cloud setup: create a project, enable the Google Calendar API, set up the
+consent screen (External, add yourself as a test user, or publish it so the sign-in doesn't expire every 7
+days), and create an OAuth client of type **Desktop app**. Paste its client ID and secret in Settings >
+Calendar and press **Sign in with Google**.
+
+The **iCal address** needs no setup, but Google only updates that copy every few hours:
+
 1. In Google Calendar on the web, open **Settings**, pick your calendar, and copy **Secret address in iCal format**.
 2. Open TheIsland **Settings** > **Calendar**, paste it and press **Save** (or use the tray item **Set calendar from copied iCal address**).
 

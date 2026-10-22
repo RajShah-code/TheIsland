@@ -76,6 +76,8 @@ The user is worried about RAM, CPU and disk. Targets:
 - **Calendar:** v1 reads the user's Google Calendar **secret iCal (ICS) address** (Google Calendar >
   Settings > the calendar > "Secret address in iCal format"). No OAuth needed. Store the URL locally,
   not in the repo. Google Calendar API / Outlook can come later.
+  Update 2026-10-22: Google Calendar API added (user's own OAuth Desktop client, loopback + PKCE, no SDK),
+  because Google's iCal copy lags by hours. The iCal address stays as the no-setup option.
 - **Clock:** 12-hour format with AM/PM.
 
 ## Working rules for this project

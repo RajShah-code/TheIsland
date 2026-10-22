@@ -8,6 +8,7 @@ const on = (channel) => (cb) => {
 
 contextBridge.exposeInMainWorld('island', {
   getState: () => ipcRenderer.invoke('island:state'),
+  calendarWeek: (start) => ipcRenderer.invoke('island:calendar-week', start),
   onClaude: on('island:claude'),
   onMedia: on('island:media'),
   onCalendar: on('island:calendar'),
