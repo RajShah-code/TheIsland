@@ -113,11 +113,11 @@ function Panel() {
           const isToday = d === today
           const sunday = new Date(d).getDay() === 0
           const has = eventsOn(events, d).length > 0
-          // Like the Mac's Calendar: today is a filled accent circle, the picked day a grey one.
-          const look = isToday
-            ? 'bg-accent text-white'
-            : isSel
-              ? 'bg-white/[0.16] text-white'
+          // The picked day is in the accent color; today, when another day is picked, in plain white.
+          const look = isSel
+            ? 'text-accent'
+            : isToday
+              ? 'text-white'
               : d < today
                 ? 'text-white/30'
                 : sunday
@@ -130,14 +130,10 @@ function Panel() {
               aria-label={dayLabel.format(d)}
               aria-current={isToday ? 'date' : undefined}
               aria-pressed={isSel}
-              className="group flex w-8 flex-col items-center rounded-lg py-0.5"
+              className="flex w-8 flex-col items-center rounded-lg py-0.5 transition-colors hover:bg-white/8"
             >
               <span className="text-[10px] font-semibold text-white/35">{letter.format(d)}</span>
-              <span
-                className={`grid h-6 w-6 place-items-center rounded-full text-[14px] font-bold tabular-nums ${look} ${
-                  isToday || isSel ? '' : 'group-hover:bg-white/[0.08]'
-                }`}
-              >
+              <span className={`text-[16px] leading-tight font-bold tabular-nums ${look}`}>
                 {new Date(d).getDate()}
               </span>
               <span className={`mt-0.5 h-1 w-1 rounded-full ${has ? 'bg-accent' : 'bg-transparent'}`} />
