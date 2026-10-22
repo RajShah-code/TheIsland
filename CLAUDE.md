@@ -73,7 +73,7 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
   `orderedWidgets(settings)` applies the user's order and hidden list.
 - `src/renderer/src/components/System.jsx` the System tab, laid out like the Mac's Control Center (modules,
   ring gauges, thick sliders, round buttons). To look at it without the island: `npx vite --config
-  src/renderer/preview/vite.config.mjs`, then open /preview/system.html (`?style=both|icon|label`, `&all`).
+  src/renderer/preview/vite.config.mjs`, then open /preview/system.html (`?style=both|icon|label`, `&all`) or /preview/calendar.html.
 - `src/renderer/settings.html` + `src/renderer/src/settings/` the settings page, a second renderer entry with
   its own preload (`src/preload/settings.js`, `window.settingsApi`) and stylesheet, so none of it loads in
   the island.

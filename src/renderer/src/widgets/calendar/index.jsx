@@ -110,26 +110,32 @@ function Panel() {
       <div className="mt-1.5 flex justify-between">
         {days.map((d) => {
           const isSel = d === selected
+          const isToday = d === today
           const sunday = new Date(d).getDay() === 0
           const has = eventsOn(events, d).length > 0
+          // Like the Mac's Calendar: today is a filled accent circle, the picked day a grey one.
+          const look = isToday
+            ? 'bg-accent text-white'
+            : isSel
+              ? 'bg-white/[0.16] text-white'
+              : d < today
+                ? 'text-white/30'
+                : sunday
+                  ? 'text-rose-400/80'
+                  : 'text-white/80'
           return (
             <button
               key={d}
               onClick={() => setPicked(d)}
-              className="flex w-8 flex-col items-center rounded-lg py-0.5 transition-colors hover:bg-white/8"
+              aria-label={dayLabel.format(d)}
+              aria-current={isToday ? 'date' : undefined}
+              aria-pressed={isSel}
+              className="group flex w-8 flex-col items-center rounded-lg py-0.5"
             >
               <span className="text-[10px] font-semibold text-white/35">{letter.format(d)}</span>
               <span
-                className={`text-[16px] leading-tight font-bold tabular-nums ${
-                  isSel
-                    ? 'text-accent'
-                    : d === today
-                      ? 'text-white underline decoration-accent decoration-2 underline-offset-2'
-                      : d < today
-                        ? 'text-white/30'
-                        : sunday
-                          ? 'text-rose-400/80'
-                          : 'text-white/80'
+                className={`grid h-6 w-6 place-items-center rounded-full text-[14px] font-bold tabular-nums ${look} ${
+                  isToday || isSel ? '' : 'group-hover:bg-white/[0.08]'
                 }`}
               >
                 {new Date(d).getDate()}
