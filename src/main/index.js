@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
 import { app, globalShortcut, ipcMain, shell } from 'electron'
 import { installRelayFile } from '../shared/hooks-installer.mjs'
@@ -31,39 +32,52 @@ const HIDE_SHORTCUT = 'Control+Alt+I'
 const GREET_DELAY_MS = 1200
 const GOODBYE_MS = 1800
 
-// Start with Windows. Run unpackaged (`electron .`), the login item must carry the app path, and
-// reading it back has to use the same path and args.
+// Start with Windows, as a shortcut in the user's Startup folder. A Run registry entry (what Electron's
+// login item writes) was never launched on this machine even with an "enabled" mark identical to
+// Spotify's, which did run (Shell-Core log, 2026-10-22); Startup folder shortcuts go through a
+// separate path that works. Run unpackaged (`electron .`), the shortcut must carry the app path.
 const LOGIN_NAME = 'TheIsland'
-const APPROVED_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run'
-function loginItemOptions() {
+const APPROVED_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved'
+const startupShortcut = () =>
+  path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', `${LOGIN_NAME}.lnk`)
+function oldLoginItemOptions() {
   return { name: LOGIN_NAME, ...(app.isPackaged ? {} : { path: process.execPath, args: [app.getAppPath()] }) }
 }
-// Windows skips a Run entry that has no "approved" mark (seen on 2026-10-22: Spotify, Chrome and Drive
-// ran at login, the island did not). Electron removes the mark instead of writing one, so write the
-// enabled value ourselves. `force` is for the user's own switch; at startup we only fill in a missing
-// mark and leave one the user turned off in Task Manager alone.
-function approveLoginItem(force) {
-  const add = () =>
-    execFile('reg', ['add', APPROVED_KEY, '/v', LOGIN_NAME, '/t', 'REG_BINARY', '/d', '02' + '0'.repeat(22), '/f'], (e) =>
-      e ? log('could not approve the login item', e.message) : log('login item approved')
-    )
-  if (force) return add()
-  execFile('reg', ['query', APPROVED_KEY, '/v', LOGIN_NAME], (e) => e && add())
-}
+const regDelete = (key, value) => execFile('reg', ['delete', key, '/v', value, '/f'], () => {})
 function startsWithWindows() {
-  try {
-    return app.getLoginItemSettings(loginItemOptions()).openAtLogin === true
-  } catch {
-    return false
-  }
+  return fs.existsSync(startupShortcut())
 }
 function setStartWithWindows(on) {
   try {
-    app.setLoginItemSettings({ ...loginItemOptions(), openAtLogin: on })
-    if (on) approveLoginItem(true)
+    if (on) {
+      const ok = shell.writeShortcutLink(startupShortcut(), {
+        target: process.execPath,
+        args: app.isPackaged ? '' : `"${app.getAppPath()}"`,
+        cwd: app.isPackaged ? path.dirname(process.execPath) : app.getAppPath(),
+        appUserModelId: 'TheIsland',
+        description: 'TheIsland'
+      })
+      if (!ok) throw new Error('shortcut not written')
+      // The user's own switch also clears a "disabled" mark left by Task Manager (no mark = enabled).
+      regDelete(`${APPROVED_KEY}\\StartupFolder`, `${LOGIN_NAME}.lnk`)
+    } else {
+      fs.rmSync(startupShortcut(), { force: true })
+    }
     log(on ? 'start with windows on' : 'start with windows off')
   } catch (e) {
     log('could not change the login item', e.message)
+  }
+}
+// Move a Run entry from an earlier version over to the shortcut.
+function migrateLoginItem() {
+  try {
+    if (!app.getLoginItemSettings(oldLoginItemOptions()).openAtLogin) return
+    app.setLoginItemSettings({ ...oldLoginItemOptions(), openAtLogin: false })
+    regDelete(`${APPROVED_KEY}\\Run`, LOGIN_NAME)
+    setStartWithWindows(true)
+    log('login item moved to the Startup folder')
+  } catch (e) {
+    log('could not move the login item', e.message)
   }
 }
 
@@ -124,8 +138,7 @@ function start() {
     return true
   }
 
-  // Fill in a missing "approved" mark for a login item made before that fix.
-  if (startsWithWindows()) approveLoginItem(false)
+  migrateLoginItem()
 
   // Keep the copy the hooks run up to date with this version of the relay.
   try {
