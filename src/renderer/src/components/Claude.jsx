@@ -259,7 +259,7 @@ function QuestionCard({ approval, queued, active }) {
   }
   const complete = picked.every((p) => p.length > 0)
   return (
-    <div className="w-[600px] space-y-3 rounded-2xl bg-white/[0.06] p-3 ring-1 ring-rose-500/40">
+    <div className="space-y-3 rounded-2xl bg-white/[0.06] p-3 ring-1 ring-rose-500/40">
       <div className="flex items-center gap-2 text-xs">
         <Mascot mood="waiting" cell={2} active={active} />
         <span className="font-semibold">{approval.project}</span>

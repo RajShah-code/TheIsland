@@ -54,7 +54,8 @@ window.island = {
 
 createRoot(document.getElementById('root')).render(
   <IslandProvider>
-    <div style={{ margin: 40, display: 'inline-block', padding: 20, background: '#000', borderRadius: 30 }} className="font-sans text-white">
+    {/* Same frame as the island's Claude Code tab: 600 px wide including 20 px padding (CLAUDE_W, PAD in App.jsx). */}
+    <div style={{ margin: 40, width: 600, boxSizing: 'border-box', padding: 20, background: '#000', borderRadius: 30 }} className="font-sans text-white">
       <ApprovalCard approval={approval} queued={0} active />
     </div>
   </IslandProvider>
