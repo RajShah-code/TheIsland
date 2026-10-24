@@ -1,0 +1,47 @@
+# Pushing a version tag (git tag v0.1.0 && git push origin v0.1.0) builds the installer and attaches it
+# to a draft GitHub Release with its SHA-256. Check the draft, then publish it on GitHub.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Check the tag matches package.json
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+      - run: npm test
+      - run: npm run dist
+      - name: Create the draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          file="dist/TheIsland-Setup-${GITHUB_REF_NAME#v}.exe"
+          sha=$(sha256sum "$file" | cut -d' ' -f1)
+          echo "$sha  $(basename "$file")" > "$file.sha256"
+          cat > notes.md <<EOF
+          Download **$(basename "$file")** below and run it. Windows 11, x64.
+
+          The installer isn't code-signed yet, so SmartScreen may say it "protected your PC": click **More info** > **Run anyway**.
+
+          SHA-256: \`$sha\`
+          EOF
+          gh release create "$GITHUB_REF_NAME" "$file" "$file.sha256" --draft --title "TheIsland $GITHUB_REF_NAME" --notes-file notes.md

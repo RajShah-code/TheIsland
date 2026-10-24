@@ -107,7 +107,10 @@ Test without Claude Code: pipe event JSON into the relay while the app runs, for
 ## Commands
 
 - `npm start` build and run. `npm run dev` hot reload.
-- `npm run build:helper` rebuild the media helper.
+- `npm run build:helper` rebuild the media helper and the hook relay.
+- `npm test` tests the relay exe against a fake island server (`scripts/test-relay.mjs`).
+- `npm run dist` builds the installer (`electron-builder.yml`) into `dist/`. Releases: bump `version` in
+  package.json, commit, push a `v<version>` tag; `.github/workflows/release.yml` builds a draft GitHub Release.
 - `npm run hooks:diff | hooks:install | hooks:uninstall | hooks:status`, add `-- --settings <file>` to test on a copy.
 
 ## Measuring

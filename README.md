@@ -37,6 +37,10 @@ the open island, or the tray icon).
 
 Requires Windows 11 and Claude Code. Node.js is not needed.
 
+To uninstall, first choose **Remove Claude Code hooks...** in the tray, then remove TheIsland in Windows
+Settings > Apps. (Hooks left behind are harmless: they exit right away when TheIsland isn't there.) Your
+settings stay in `%USERPROFILE%\.theisland`; delete that folder to remove them too.
+
 ## Connect Claude Code
 
 TheIsland gets Claude Code events through [hooks](https://docs.claude.com/en/docs/claude-code/hooks) in
@@ -98,8 +102,9 @@ npm install
 npm start
 ```
 
-`npm start` builds and runs the app, `npm run dev` runs it with hot reload, and `npm run dist` builds the installer
-into `dist/`. The hooks can also be managed from the command line:
+`npm start` builds and runs the app, `npm run dev` runs it with hot reload, `npm test` tests the hook relay
+against a fake island, and `npm run dist` builds the installer into `dist/`. The hooks can also be managed from
+the command line:
 
 ```bash
 npm run hooks:diff        # show what would change, write nothing
