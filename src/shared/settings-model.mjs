@@ -53,7 +53,7 @@ export const SYSTEM_IDS = SYSTEM_ITEMS.map((it) => it.id)
 
 export const PILL_LEFT = ['time', 'date', 'none']
 export const PILL_RIGHT = ['none', 'time', 'date']
-// The relay gives up after 290 s and Claude Code kills the hook at 300 s (see hook/theisland-relay.cjs),
+// The relay gives up after 290 s and Claude Code kills the hook at 300 s (see hook/TheIslandRelay.cs),
 // so a longer island timeout would never be reached.
 export const TIMEOUT_MIN = 30
 export const TIMEOUT_MAX = 285

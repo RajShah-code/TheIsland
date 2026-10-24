@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { app, globalShortcut, ipcMain, shell } from 'electron'
-import { dataDir, installRelayFile, legacyDataDir } from '../shared/hooks-installer.mjs'
+import { bundledRelayPath, dataDir, installRelayFile, legacyDataDir } from '../shared/hooks-installer.mjs'
 import { createClaudeHub } from './claude'
 import { startCalendar } from './calendar'
 import { hasCalendarUrl, removeCalendarUrl, setCalendarFromClipboard, setCalendarUrl } from './calendar-url'
@@ -162,7 +162,7 @@ function start() {
 
   // Keep the copy the hooks run up to date with this version of the relay.
   try {
-    installRelayFile(path.join(app.getAppPath(), 'hook', 'theisland-relay.cjs'))
+    installRelayFile(bundledRelayPath(app.getAppPath()))
   } catch (e) {
     log('could not copy relay', e.message)
   }

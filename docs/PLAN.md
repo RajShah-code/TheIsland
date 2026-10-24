@@ -48,6 +48,8 @@ The user is worried about RAM, CPU and disk. Targets:
   **local-only channel** (127.0.0.1 HTTP or a named pipe) authenticated with a **random secret token**
   stored in a user-only file. If the app is not running, the relay exits immediately (<300 ms) and
   Claude Code behaves exactly as if the hook did not exist.
+  Update 2026-10-24: the relay is now a small C# exe (`hook/TheIslandRelay.cs`, built with Windows' own
+  csc.exe), so hooks work for people without Node.js (Claude Code's native installer doesn't need it).
 - **Allow/Deny:** on a permission request the relay waits for the user's click and returns the
   decision in the format Claude Code expects. On timeout, or if the app is closed, it returns
   nothing so the normal terminal prompt appears. Show the exact tool + command/file being approved.

@@ -62,11 +62,15 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
   `widgets { order, hidden }`, `system { order, hidden, controlStyle }`, `claude { buddy }`, `island { ghostOpacity }`.
   Start with Windows is a `TheIsland.lnk` in the user's Startup folder (not stored); the Run registry entry
   Electron's login item writes was never launched by Explorer on this machine.
-- `hook/theisland-relay.cjs` the script Claude Code runs. Copied to `%USERPROFILE%\.theisland` at app start so
-  the hook path doesn't depend on this folder. No dependencies, exits 0 silently on any problem.
+- `hook/TheIslandRelay.cs` the relay Claude Code runs, built to `resources/theisland-relay.exe` (C# 5, so
+  hooks need no Node.js). Its own small JSON reader/writer and a raw loopback socket, because
+  `JavaScriptSerializer` and `HttpWebRequest` each added hundreds of ms per run. Copied to
+  `%USERPROFILE%\.theisland` at app start so the hook path doesn't depend on the install folder (a running copy
+  is renamed aside first). Exits 0 silently on any problem. It replaced `theisland-relay.cjs`; the installer
+  still recognises entries for that file so installing again replaces them.
 - `helper/IslandHelper.cs` tiny C# program: Windows media sessions (events) and fullscreen detection (one
-  cheap check per second, reports changes only). Built by `scripts/build-helper.mjs`
-  with the `csc.exe` that ships with Windows (.NET Framework 4); the exe is gitignored.
+  cheap check per second, reports changes only). Built by `scripts/build-helper.mjs` (with the relay)
+  with the `csc.exe` that ships with Windows (.NET Framework 4, C# 5 only); the exes are gitignored.
 - `src/renderer/src/` React UI. `App.jsx` (the notch: closed, open with Home / Claude Code tabs, fullscreen
   hide and top-edge peek), `components/Claude.jsx`, `widgets/<name>/index.jsx` + registration in
   `widgets/index.js`. Each widget is one column of the Home tab (`width`, optional `visible(state)`);
@@ -89,14 +93,16 @@ sessions are forgotten after 45 min. See `src/main/claude.js`.
 
 Events used: SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, Notification, Stop, SessionEnd (all
 `async: true`), and PermissionRequest (sync, timeout 300 s). Hook entries use exec form
-(`command` = node.exe, `args` = [relay path]); ours are found by the relay filename. The relay drops prompt
+(`command` = the relay exe, `args` = `["--hook"]`, which only forces exec form; without args Claude Code runs
+the command through Git Bash or PowerShell); ours are found by the relay filename. The relay drops prompt
 text and tool output before sending. A PermissionRequest reply is
 `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"|"deny"}}}`;
 printing nothing hands the prompt back to the terminal.
 
 Test without Claude Code: pipe event JSON into the relay while the app runs, for example
-`echo '{"hook_event_name":"SessionStart","session_id":"t","cwd":"D:/x"}' | node hook/theisland-relay.cjs`
-(use forward slashes in paths; backslashes need JSON escaping).
+`echo '{"hook_event_name":"SessionStart","session_id":"t","cwd":"D:/x"}' | resources/theisland-relay.exe`
+(use forward slashes in paths; backslashes need JSON escaping). The relay reads `relay.json` from
+`%USERPROFILE%`, so to test against a fake server set `USERPROFILE` for the relay process only.
 
 ## Commands
 

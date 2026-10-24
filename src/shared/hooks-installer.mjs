@@ -2,8 +2,8 @@
 //
 // - Reads ~/.claude/settings.json and refuses to do anything if it can't be parsed or has an
 //   unexpected shape. It never "fixes" a file it doesn't understand.
-// - Only adds/removes hook handlers whose args point at theisland-relay.cjs. Everything else in
-//   the file (other settings, other hooks) is left exactly as it was.
+// - Only adds/removes hook handlers that run theisland-relay.exe (or the theisland-relay.cjs of older
+//   versions). Everything else in the file (other settings, other hooks) is left exactly as it was.
 // - Writes a timestamped backup next to the file before every change, writes atomically and
 //   reads the result back to check it.
 // - planInstall/planUninstall return the before/after text and a diff without writing, so the
@@ -14,7 +14,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-export const RELAY_FILE = 'theisland-relay.cjs'
+// The relay is a small exe (hook/TheIslandRelay.cs), so the hooks don't need Node.js. Older versions
+// ran theisland-relay.cjs with node.exe; those entries are still recognised so installing replaces them.
+export const RELAY_FILE = 'theisland-relay.exe'
+const OLD_RELAY_FILES = ['theisland-relay.cjs']
 
 // Events the island listens to. Status events are async so Claude Code never waits for them.
 // PermissionRequest is sync: Claude Code waits for the user's answer in the island.
@@ -53,31 +56,49 @@ export function relayInstallPath() {
   return path.join(dataDir(), RELAY_FILE)
 }
 
-// Copies the relay into the data folder so the hook path stays stable even if this project folder
-// moves. Only rewrites when the content changed. Hook entries from older versions point at the old
-// copy in %APPDATA%, so that one is kept current too until the hooks are updated.
+// The relay exe that ships with the app (built into resources/ by scripts/build-helper.mjs). In a
+// packaged app it sits in app.asar.unpacked, since an exe can't run from inside the asar archive.
+export function bundledRelayPath(appRoot) {
+  return path.join(appRoot, 'resources', RELAY_FILE).replace('app.asar', 'app.asar.unpacked')
+}
+
+// Copies the relay into the data folder so the hook path stays stable when the app is updated or
+// moved. Only rewrites when the content changed. A copy that is running (a hook in flight, or one
+// waiting for an approval) can't be overwritten but can be renamed, so it is moved aside first and
+// cleaned up on a later run.
 export function installRelayFile(sourcePath) {
   const src = fs.readFileSync(sourcePath)
-  const write = (dest) => {
-    fs.mkdirSync(path.dirname(dest), { recursive: true })
-    let same = false
-    try {
-      same = fs.readFileSync(dest).equals(src)
-    } catch {}
-    if (!same) fs.writeFileSync(dest, src)
-  }
-  const legacy = path.join(legacyDataDir(), RELAY_FILE)
-  if (fs.existsSync(legacy)) write(legacy)
   const dest = relayInstallPath()
-  write(dest)
+  const dir = path.dirname(dest)
+  fs.mkdirSync(dir, { recursive: true })
+  for (const f of fs.readdirSync(dir)) {
+    if (f.startsWith(RELAY_FILE + '.old-')) fs.rm(path.join(dir, f), { force: true }, () => {})
+  }
+  let same = false
+  try {
+    same = fs.readFileSync(dest).equals(src)
+  } catch {}
+  if (same) return dest
+  const tmp = dest + '.new'
+  fs.writeFileSync(tmp, src)
+  try {
+    fs.renameSync(tmp, dest)
+  } catch {
+    fs.renameSync(dest, dest + '.old-' + Date.now())
+    fs.renameSync(tmp, dest)
+  }
   return dest
 }
 
 function isOurHandler(h) {
   if (!h || typeof h !== 'object') return false
   const parts = [h.command, ...(Array.isArray(h.args) ? h.args : [])]
-  return parts.some((p) => typeof p === 'string' && p.replace(/\\/g, '/').endsWith('/' + RELAY_FILE))
+  return parts.some(
+    (p) => typeof p === 'string' && [RELAY_FILE, ...OLD_RELAY_FILES].some((f) => p.replace(/\\/g, '/').endsWith('/' + f))
+  )
 }
+
+const samePath = (a, b) => path.resolve(String(a)).toLowerCase() === path.resolve(String(b)).toLowerCase()
 
 class RefuseError extends Error {}
 
@@ -152,13 +173,15 @@ function plan(file, mutate) {
   return { file, before: text, after, changed: before !== after, diff: lineDiff(before, after) }
 }
 
-export function planInstall({ settingsPath = defaultSettingsPath(), nodePath, relayPath }) {
-  if (!nodePath || !relayPath) throw new Error('nodePath and relayPath are required')
+export function planInstall({ settingsPath = defaultSettingsPath(), relayPath = relayInstallPath() } = {}) {
   return plan(settingsPath, (data) => {
     stripOurs(data)
     data.hooks = data.hooks || {}
     for (const ev of EVENTS) {
-      const handler = { type: 'command', command: nodePath, args: [relayPath], timeout: ev.timeout }
+      // args makes Claude Code spawn the exe directly (exec form). Without it the command goes through
+      // Git Bash or PowerShell, which is slower and mangles the backslashes in the path. The relay
+      // ignores the argument.
+      const handler = { type: 'command', command: relayPath, args: ['--hook'], timeout: ev.timeout }
       if (ev.async) handler.async = true
       data.hooks[ev.name] = [...(data.hooks[ev.name] || []), { hooks: [handler] }]
     }
@@ -182,12 +205,11 @@ export function isInstalled(settingsPath = defaultSettingsPath()) {
   }
 }
 
-// True when every event in EVENTS has our handler and it runs the relay in the data folder. An
-// install from an older version can miss some (SubagentStart and SubagentStop were added later) or
-// point at the old %APPDATA% copy; installing again fixes both.
+// True when every event in EVENTS has our handler and it runs the relay exe in the data folder. An
+// install from an older version can miss some (SubagentStart and SubagentStop were added later), point
+// at the old %APPDATA% copy or run the old Node script; installing again fixes all three.
 export function isUpToDate(settingsPath = defaultSettingsPath()) {
-  const current = (h) =>
-    isOurHandler(h) && Array.isArray(h.args) && h.args.some((a) => path.resolve(String(a)) === relayInstallPath())
+  const current = (h) => isOurHandler(h) && typeof h.command === 'string' && samePath(h.command, relayInstallPath())
   try {
     const { data } = readSettings(settingsPath)
     const hooks = data.hooks || {}

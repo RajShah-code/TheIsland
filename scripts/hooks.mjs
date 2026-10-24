@@ -11,13 +11,13 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   applyPlan,
+  bundledRelayPath,
   defaultSettingsPath,
   installRelayFile,
   isInstalled,
   isUpToDate,
   planInstall,
-  planUninstall,
-  relayInstallPath
+  planUninstall
 } from '../src/shared/hooks-installer.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -26,8 +26,6 @@ const cmd = args[0]
 const yes = args.includes('--yes')
 const si = args.indexOf('--settings')
 const settingsPath = si >= 0 ? args[si + 1] : defaultSettingsPath()
-// Hooks run with the system Node, not Electron.
-const nodePath = process.execPath
 
 function showDiff(p) {
   if (!p.changed) {
@@ -61,14 +59,15 @@ async function confirm(q) {
 
 try {
   if (cmd === 'diff' || cmd === 'install') {
-    const p = planInstall({ settingsPath, nodePath, relayPath: relayInstallPath() })
+    const p = planInstall({ settingsPath })
     showDiff(p)
     if (cmd === 'install' && p.changed) {
       if (!(await confirm('Write these changes?'))) {
         console.log('Nothing written.')
         process.exit(0)
       }
-      installRelayFile(join(root, 'hook', 'theisland-relay.cjs'))
+      // Built by npm run build:helper (npm start and npm run dev build it too).
+      installRelayFile(bundledRelayPath(root))
       const r = applyPlan(p)
       console.log('Installed. Backup: ' + (r.backup || '(file was new)'))
     }

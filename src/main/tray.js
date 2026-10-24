@@ -1,16 +1,14 @@
 // Tray menu: Settings window, hide switch, approvals switch, hook install/remove (with the diff shown
 // first), calendar URL, quit. Everything else lives in the settings window (settings-window.js).
-import { spawnSync } from 'node:child_process'
-import path from 'node:path'
 import { app, dialog, Menu, nativeImage, Tray } from 'electron'
 import {
   applyPlan,
+  bundledRelayPath,
   installRelayFile,
   isInstalled,
   isUpToDate,
   planInstall,
-  planUninstall,
-  relayInstallPath
+  planUninstall
 } from '../shared/hooks-installer.mjs'
 import { hasCalendarUrl, removeCalendarUrl, setCalendarFromClipboard } from './calendar-url'
 import { getSettings, updateSettings } from './config'
@@ -33,12 +31,6 @@ function trayIcon() {
     }
   }
   return nativeImage.createFromBitmap(buf, { width: s, height: s, scaleFactor: 2 })
-}
-
-function systemNode() {
-  const r = spawnSync('where', ['node'], { encoding: 'utf8', windowsHide: true })
-  const first = (r.stdout || '').split(/\r?\n/).find((l) => l.toLowerCase().endsWith('node.exe'))
-  return first || null
 }
 
 function shortDiff(diff) {
@@ -64,12 +56,7 @@ export function createTray({
 
   async function installHooks() {
     try {
-      const nodePath = systemNode()
-      if (!nodePath) {
-        dialog.showErrorBox('TheIsland', 'Node.js was not found on PATH. The hooks need it to run.')
-        return
-      }
-      const plan = planInstall({ nodePath, relayPath: relayInstallPath() })
+      const plan = planInstall()
       if (!plan.changed) {
         dialog.showMessageBox({ message: 'Claude Code hooks are already installed.' })
         return
@@ -85,7 +72,7 @@ export function createTray({
           shortDiff(plan.diff)
       })
       if (response !== 0) return
-      installRelayFile(path.join(app.getAppPath(), 'hook', 'theisland-relay.cjs'))
+      installRelayFile(bundledRelayPath(app.getAppPath()))
       const r = applyPlan(plan)
       log('hooks installed')
       dialog.showMessageBox({ message: 'Hooks installed.', detail: 'Backup: ' + (r.backup || 'none (new file)') })
