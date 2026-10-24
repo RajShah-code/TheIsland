@@ -1,0 +1,40 @@
+# Windows installer (npm run dist). Built by GitHub Actions for releases (.github/workflows/release.yml).
+# Same id the app sets with app.setAppUserModelId, so the Start menu shortcut and the running app match.
+appId: TheIsland
+productName: TheIsland
+copyright: Copyright (c) 2026 Raj Shah
+
+directories:
+  buildResources: build
+  output: dist
+
+# Only the built app and the two small exes. React is bundled into the renderer; ical.js is the one
+# runtime dependency the main process loads from node_modules.
+files:
+  - out/**
+  - resources/island-helper.exe
+  - resources/theisland-relay.exe
+  - package.json
+# An exe can't run from inside app.asar (see helper.js and bundledRelayPath in hooks-installer.mjs).
+asarUnpack:
+  - resources/*.exe
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+  icon: build/icon.png
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: false
+  createStartMenuShortcut: true
+  runAfterFinish: true
+  license: LICENSE
+  artifactName: TheIsland-Setup-${version}.${ext}
+  include: build/installer.nsh
+
+# No auto-update yet: releases are downloaded from GitHub by hand.
+publish: null

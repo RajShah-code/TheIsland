@@ -21,18 +21,20 @@
     "hooks:diff": "node scripts/hooks.mjs diff",
     "hooks:install": "node scripts/hooks.mjs install",
     "hooks:uninstall": "node scripts/hooks.mjs uninstall",
-    "hooks:status": "node scripts/hooks.mjs status"
+    "hooks:status": "node scripts/hooks.mjs status",
+    "dist": "npm run build && electron-builder --win"
   },
   "dependencies": {
-    "ical.js": "2.2.1",
-    "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "ical.js": "2.2.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",
     "@vitejs/plugin-react": "6.1.2",
     "electron": "44.9.3",
+    "electron-builder": "26.17.0",
     "electron-vite": "6.0.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "tailwindcss": "4.3.3",
     "vite": "8.3.5"
   }
