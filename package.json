@@ -6,7 +6,13 @@
   "description": "A light dynamic-island overlay for Windows 11: Claude Code status and approvals, music, calendar and clock.",
   "main": "out/main/index.js",
   "author": "Raj Shah",
-  "license": "UNLICENSED",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RajShah-code/TheIsland.git"
+  },
+  "homepage": "https://github.com/RajShah-code/TheIsland",
+  "bugs": "https://github.com/RajShah-code/TheIsland/issues",
   "scripts": {
     "dev": "node scripts/build-helper.mjs && electron-vite dev",
     "build": "node scripts/build-helper.mjs && electron-vite build",
