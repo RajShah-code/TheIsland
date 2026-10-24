@@ -494,13 +494,14 @@ export function createClaudeHub({ getConfig, onChange, onAttention, closedHosts 
     onAttention({ kind: 'approval', project: s.project })
   }
 
-  // decision: 'allow' | 'deny' | null (null = hand the prompt back to the terminal).
-  function resolve(id, decision, gone = false) {
+  // decision: 'allow' | 'deny' | null (null = hand the prompt back to the terminal). answers: for
+  // AskUserQuestion, the answer per question (see questionAnswers).
+  function resolve(id, decision, gone = false, answers = null) {
     const a = approvals.get(id)
     if (!a) return false
     approvals.delete(id)
     clearTimeout(a.timer)
-    if (!gone) a.reply(decision)
+    if (!gone) a.reply(decision, answers)
     const s = sessions.get(a.sessionId)
     if (s && decision) {
       s.state = s.resumeState || 'working'
@@ -511,10 +512,36 @@ export function createClaudeHub({ getConfig, onChange, onAttention, closedHosts 
   }
 
 
+  // AskUserQuestion is answered, not just allowed: the island sends the picked option labels per
+  // question, in order. Only labels it was shown are accepted, one per single-select question, so the
+  // renderer can't make up an answer. Multi-select labels are joined with ", " as Claude Code expects.
+  // The relay adds these to the original question input (it has the unclipped copy).
+  function questionAnswers(a, picked) {
+    const qs = a.input?.questions
+    if (!Array.isArray(qs) || !Array.isArray(picked) || picked.length !== qs.length) return null
+    const out = []
+    for (let i = 0; i < qs.length; i++) {
+      const labels = new Set((Array.isArray(qs[i]?.options) ? qs[i].options : []).map((o) => o?.label))
+      const p = picked[i]
+      if (!Array.isArray(p) || p.length === 0 || (!qs[i].multiSelect && p.length !== 1)) return null
+      if (!p.every((l) => typeof l === 'string' && labels.has(l)) || new Set(p).size !== p.length) return null
+      out.push(p.join(', '))
+    }
+    return out
+  }
+
   return {
     handle,
     snapshot,
-    decide: (id, decision) => resolve(id, decision === 'allow' || decision === 'deny' ? decision : null),
+    decide: (id, decision, picked) => {
+      const a = approvals.get(id)
+      // A plain "allow" doesn't answer a question (Claude Code would still ask), so only answers count.
+      if (a?.tool === 'AskUserQuestion' && decision === 'allow') {
+        const answers = questionAnswers(a, picked)
+        return answers ? resolve(id, 'allow', false, answers) : false
+      }
+      return resolve(id, decision === 'allow' || decision === 'deny' ? decision : null)
+    },
     releaseAll: () => [...approvals.keys()].forEach((id) => resolve(id, null))
   }
 }

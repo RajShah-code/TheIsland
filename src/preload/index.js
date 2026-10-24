@@ -17,7 +17,7 @@ contextBridge.exposeInMainWorld('island', {
   onFullscreen: on('island:fullscreen'),
   onSystem: on('island:system'),
   onPointer: on('island:pointer'),
-  decide: (id, decision) => ipcRenderer.send('island:decide', id, decision),
+  decide: (id, decision, answers) => ipcRenderer.send('island:decide', id, decision, answers),
   media: (cmd) => ipcRenderer.send('island:media', cmd),
   system: (cmd, value) => ipcRenderer.send('island:system', String(cmd), value),
   setSystemWatch: (on) => ipcRenderer.send('island:system-watch', !!on),

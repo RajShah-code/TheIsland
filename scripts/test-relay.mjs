@@ -17,6 +17,7 @@ fs.mkdirSync(path.dirname(relayJson))
 const token = 'token-' + Math.random().toString(16).slice(2)
 
 let decision = null
+let answers = null
 let requests = []
 const server = http.createServer((req, res) => {
   const chunks = []
@@ -25,7 +26,8 @@ const server = http.createServer((req, res) => {
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'))
     requests.push({ headers: req.headers, body })
     res.writeHead(200, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({ decision: body.event === 'PermissionRequest' ? decision : null }))
+    const perm = body.event === 'PermissionRequest'
+    res.end(JSON.stringify({ decision: perm ? decision : null, ...(perm && answers ? { answers } : {}) }))
   })
 })
 await new Promise((r) => server.listen(0, '127.0.0.1', r))
@@ -114,6 +116,33 @@ test('approvals print the decision, nothing when there is none', async () => {
     assert.deepEqual(ti.nested, ['x'.repeat(4000) + ' ...[truncated]', 1.5, 12345678901234567890, null, true])
     assert.equal(ti.text, perm.tool_input.text)
   }
+})
+
+test('questions answered in the island come back as updatedInput', async () => {
+  const longQuestion = 'Which one? ' + long
+  const ask = {
+    hook_event_name: 'PermissionRequest',
+    session_id: 's',
+    tool_name: 'AskUserQuestion',
+    tool_input: {
+      questions: [
+        { question: longQuestion, header: 'Pick', multiSelect: false, options: [{ label: 'A', description: 'first' }, { label: 'B' }] },
+        { question: 'Which extras?', header: 'Extras', multiSelect: true, options: [{ label: 'X' }, { label: 'Y' }] }
+      ]
+    }
+  }
+  decision = 'allow'
+  answers = ['A', 'X, Y']
+  const r = await relay(ask)
+  assert.equal(r.sent[0].tool_input.questions[0].question.length, 4000 + ' ...[truncated]'.length, 'the island gets a clipped copy')
+  assert.deepEqual(JSON.parse(r.out).hookSpecificOutput.decision, {
+    behavior: 'allow',
+    updatedInput: { ...ask.tool_input, answers: { [longQuestion]: 'A', 'Which extras?': 'X, Y' } }
+  })
+  // Answers that don't fit the questions: nothing printed, so the terminal asks.
+  answers = ['A']
+  assert.equal((await relay(ask)).out, '')
+  answers = null
 })
 
 test('bad input sends nothing', async () => {

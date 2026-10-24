@@ -49,13 +49,14 @@ export function startRelayServer({ dir, onEvent }) {
       if (!payload || typeof payload.event !== 'string' || typeof payload.session_id !== 'string') {
         return fail(400)
       }
-      // reply(decision) is called once; for status events right away, for approvals later.
+      // reply(decision, answers) is called once; for status events right away, for approvals later.
+      // answers only for an answered AskUserQuestion (the relay turns them into updatedInput).
       let replied = false
-      const reply = (decision) => {
+      const reply = (decision, answers) => {
         if (replied || res.writableEnded) return
         replied = true
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ decision: decision || null }))
+        res.end(JSON.stringify({ decision: decision || null, ...(answers ? { answers } : {}) }))
       }
       // The relay was killed (user pressed Esc, Claude moved on): let the caller drop the request.
       const onGone = (cb) => res.on('close', () => !replied && cb())

@@ -273,8 +273,8 @@ function start() {
       : null
   )
   ipcMain.handle('island:calendar-week', (e, start) => (fromIsland(e) ? calendar.week(Number(start)) : null))
-  ipcMain.on('island:decide', (e, id, decision) => {
-    if (fromIsland(e) && typeof id === 'string') hub.decide(id, decision)
+  ipcMain.on('island:decide', (e, id, decision, answers) => {
+    if (fromIsland(e) && typeof id === 'string') hub.decide(id, decision, answers)
   })
   ipcMain.on('island:media', (e, cmd) => {
     if (fromIsland(e)) media.command(cmd)

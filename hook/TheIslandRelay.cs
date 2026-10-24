@@ -55,7 +55,7 @@ static class Relay
         // Strip a UTF-8 BOM (Windows PowerShell adds one when piping).
         var input = Json.Parse(new UTF8Encoding(false).GetString(raw).TrimStart('﻿')) as Dictionary<string, object>;
         if (input == null) return;
-        Send(Trim(input), (int)(long)conn["port"], (string)conn["token"]);
+        Send(input, Trim(input), (int)(long)conn["port"], (string)conn["token"]);
     }
 
     static byte[] ReadStdin(int timeoutMs)
@@ -272,7 +272,7 @@ static class Relay
 
     // A plain HTTP/1.1 request over a loopback socket. HttpWebRequest costs about 300 ms of setup per
     // run, and this runs on every tool call.
-    static void Send(Dictionary<string, object> payload, int port, string token)
+    static void Send(Dictionary<string, object> input, Dictionary<string, object> payload, int port, string token)
     {
         var utf8 = new UTF8Encoding(false);
         byte[] body = utf8.GetBytes(Json.Write(payload));
@@ -310,7 +310,29 @@ static class Relay
         string content = text.Substring(split + 4);
         if (headers.Contains("\r\ntransfer-encoding: chunked")) content = Unchunk(content);
         var reply = Json.Parse(content) as Dictionary<string, object>;
-        PrintDecision(Get(reply, "decision"));
+        PrintDecision(Get(reply, "decision"), Get(reply, "answers"), input);
+    }
+
+    // AskUserQuestion answered in the island: the island sends one answer per question, in order. They
+    // go into the original (unclipped) tool input as "answers", keyed by question text, which is how a
+    // hook answers the question. Null when they don't fit the questions, so the terminal asks instead.
+    static Dictionary<string, object> AnsweredInput(Dictionary<string, object> input, object answers)
+    {
+        var list = answers as List<object>;
+        var ti = Get(input, "tool_input") as Dictionary<string, object>;
+        var questions = Get(ti, "questions") as List<object>;
+        if (!"AskUserQuestion".Equals(Get(input, "tool_name")) || list == null || questions == null || list.Count != questions.Count) return null;
+        var map = new Dictionary<string, object>();
+        for (int i = 0; i < questions.Count; i++)
+        {
+            var text = Get(questions[i] as Dictionary<string, object>, "question") as string;
+            var answer = list[i] as string;
+            if (text == null || answer == null) return null;
+            map[text] = answer;
+        }
+        var updated = new Dictionary<string, object>(ti);
+        updated["answers"] = map;
+        return updated;
     }
 
     // Decodes a chunked body. The reply is small ASCII JSON, so string lengths equal byte lengths.
@@ -331,10 +353,19 @@ static class Relay
         return sb.ToString();
     }
 
-    static void PrintDecision(object d)
+    static void PrintDecision(object d, object answers, Dictionary<string, object> input)
     {
         var decision = new Dictionary<string, object>();
-        if ("allow".Equals(d)) decision["behavior"] = "allow";
+        if ("allow".Equals(d))
+        {
+            decision["behavior"] = "allow";
+            if (answers != null)
+            {
+                var updated = AnsweredInput(input, answers);
+                if (updated == null) return;
+                decision["updatedInput"] = updated;
+            }
+        }
         else if ("deny".Equals(d))
         {
             decision["behavior"] = "deny";

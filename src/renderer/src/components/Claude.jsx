@@ -210,8 +210,132 @@ function useSecondsLeft(until) {
   return Math.max(0, Math.round((until - now) / 1000))
 }
 
-export function ApprovalCard({ approval, queued, active }) {
-  const left = useSecondsLeft(approval.expiresAt)
+function Countdown({ until }) {
+  const left = useSecondsLeft(until)
+  return (
+    <span className="text-[10px] text-white/35 tabular-nums">
+      Terminal in {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}
+    </span>
+  )
+}
+
+function Tick({ on }) {
+  return (
+    <span
+      className={`grid h-3.5 w-3.5 shrink-0 place-items-center rounded-[4px] ring-1 ${on ? 'bg-black ring-black' : 'ring-white/40'}`}
+    >
+      {on && (
+        <svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true">
+          <path d="M1 4.2 3.2 6.3 7 1.8" fill="none" stroke="#fff" strokeWidth="1.6" />
+        </svg>
+      )}
+    </span>
+  )
+}
+
+// AskUserQuestion: the question as text and its options as buttons, answered right here. A single
+// question with one choice is sent on the first click; otherwise pick an answer for each and press Send.
+// Typing a different answer ("Other") still needs the terminal.
+function QuestionCard({ approval, queued, active }) {
+  const questions = approval.input.questions
+  const [picked, setPicked] = useState(() => questions.map(() => []))
+  const options = (q) => (Array.isArray(q.options) ? q.options.filter((o) => typeof o?.label === 'string') : [])
+  const instant = questions.length === 1 && !questions[0].multiSelect
+  const send = (answers) => {
+    buddyReact('allow')
+    // Multi-select labels in the order the options are listed, not the order they were clicked.
+    const ordered = answers.map((p, i) => options(questions[i]).map((o) => o.label).filter((l) => p.includes(l)))
+    window.island.decide(approval.id, 'allow', ordered)
+  }
+  const pick = (qi, label) => {
+    if (instant) return send([[label]])
+    setPicked((prev) =>
+      prev.map((p, i) => {
+        if (i !== qi) return p
+        if (!questions[qi].multiSelect) return [label]
+        return p.includes(label) ? p.filter((l) => l !== label) : [...p, label]
+      })
+    )
+  }
+  const complete = picked.every((p) => p.length > 0)
+  return (
+    <div className="w-[600px] space-y-3 rounded-2xl bg-white/[0.06] p-3 ring-1 ring-rose-500/40">
+      <div className="flex items-center gap-2 text-xs">
+        <Mascot mood="waiting" cell={2} active={active} />
+        <span className="font-semibold">{approval.project}</span>
+        <span className="text-white/50">{questions.length > 1 ? 'has a few questions' : 'asks you'}</span>
+        {queued > 0 && <span className="ml-auto text-white/40">+{queued} more</span>}
+      </div>
+      <div className="scroll-thin max-h-[236px] space-y-4 overflow-auto pr-1">
+        {questions.map((q, qi) => (
+          <div key={qi} className="space-y-2">
+            <div className="flex items-start gap-2">
+              {q.header && (
+                <span className="mt-px shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/60">
+                  {q.header}
+                </span>
+              )}
+              <p className="text-[13px] leading-snug font-medium text-white/95">{q.question}</p>
+            </div>
+            {q.multiSelect && <p className="text-[10px] text-white/40">Choose any that apply</p>}
+            <div className="grid grid-cols-2 gap-1.5">
+              {options(q).map((o) => {
+                const on = picked[qi].includes(o.label)
+                return (
+                  <button
+                    key={o.label}
+                    onClick={() => pick(qi, o.label)}
+                    aria-pressed={instant ? undefined : on}
+                    className={`rounded-xl px-3 py-2 text-left transition-colors ${
+                      on ? 'bg-white text-black' : 'bg-white/[0.07] text-white hover:bg-white/[0.14]'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 text-xs font-semibold">
+                      {q.multiSelect && <Tick on={on} />}
+                      {o.label}
+                    </span>
+                    {o.description && (
+                      <span className={`mt-0.5 block text-[11px] leading-snug ${on ? 'text-black/60' : 'text-white/50'}`}>
+                        {o.description}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <Countdown until={approval.expiresAt} />
+        <button
+          onClick={() => window.island.decide(approval.id, null)}
+          title="To type a different answer"
+          className="ml-auto rounded-full px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/10"
+        >
+          Answer in terminal
+        </button>
+        {!instant && (
+          <button
+            onClick={() => send(picked)}
+            disabled={!complete}
+            className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black transition hover:bg-white/85 disabled:bg-white/15 disabled:text-white/35"
+          >
+            Send
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const isQuestion = (a) => a.tool === 'AskUserQuestion' && Array.isArray(a.input?.questions) && a.input.questions.length > 0
+
+export function ApprovalCard(props) {
+  return isQuestion(props.approval) ? <QuestionCard {...props} /> : <PermissionCard {...props} />
+}
+
+function PermissionCard({ approval, queued, active }) {
   const decide = (d) => {
     if (d) buddyReact(d)
     window.island.decide(approval.id, d)
@@ -227,9 +351,7 @@ export function ApprovalCard({ approval, queued, active }) {
       </div>
       <Details tool={approval.tool} input={approval.input} />
       <div className="flex items-center gap-2 pt-1">
-        <span className="text-[10px] text-white/35 tabular-nums">
-          Terminal in {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}
-        </span>
+        <Countdown until={approval.expiresAt} />
         <button
           onClick={() => decide(null)}
           className="ml-auto rounded-full px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/10"
