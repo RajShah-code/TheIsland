@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, m, useMotionValueEvent, useReducedMotion, useScroll } from 'motion/react'
 import { site } from '../../content/site.js'
-import { useActiveSection } from '../../lib/useActiveSection.js'
 import { useLatestRelease } from '../../lib/release.js'
-import { easeOut, springUI } from '../../lib/motion.js'
+import { currentPage, pageHref } from '../../lib/pages.js'
+import { easeOut } from '../../lib/motion.js'
 import { IslandMark } from '../ui/Marks.jsx'
 import Button from '../ui/Button.jsx'
 
-const sectionIds = site.nav.map((item) => item.id)
-
-// Floating glass pill, same behaviour as the Archway site's nav.
+// Floating glass pill, same behaviour as the Archway site's nav. Links go to pages; the current page
+// gets the highlight.
 export default function Nav() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const active = useActiveSection(sectionIds)
   const release = useLatestRelease()
   const { scrollY } = useScroll()
   const reduce = useReducedMotion()
@@ -47,28 +45,29 @@ export default function Nav() {
             scrolled || open ? 'glass' : 'bg-transparent'
           }`}
         >
-          <a href="#top" className="flex items-center gap-2.5 font-semibold tracking-[-0.02em]" onClick={() => setOpen(false)}>
+          <a href={pageHref('index')} className="flex items-center gap-2.5 font-semibold tracking-[-0.02em]">
             <IslandMark className="size-6" />
             {site.name}
             <span className="hidden text-sm font-normal tracking-[-0.01em] text-subtle lg:inline">by {site.studio}</span>
           </a>
 
           <ul className="hidden items-center md:flex">
-            {site.nav.map((item) => (
-              <li key={item.id}>
-                <a
-                  href={`#${item.id}`}
-                  className={`relative block rounded-full px-3.5 py-2 text-sm transition-colors duration-200 ${
-                    active === item.id ? 'text-fg' : 'text-muted hover:text-fg'
-                  }`}
-                >
-                  {active === item.id && (
-                    <m.span layoutId="nav-active" transition={springUI} className="absolute inset-0 rounded-full bg-white/[0.07]" />
-                  )}
-                  <span className="relative">{item.label}</span>
-                </a>
-              </li>
-            ))}
+            {site.nav.map((item) => {
+              const active = currentPage === item.page
+              return (
+                <li key={item.page}>
+                  <a
+                    href={pageHref(item.page)}
+                    aria-current={active ? 'page' : undefined}
+                    className={`relative block rounded-full px-3.5 py-2 text-sm transition-colors duration-200 ${
+                      active ? 'bg-white/[0.07] text-fg' : 'text-muted hover:text-fg'
+                    }`}
+                  >
+                    {item.label}
+                  </a>
+                </li>
+              )
+            })}
           </ul>
 
           <div className="flex items-center gap-2">
@@ -111,11 +110,14 @@ export default function Nav() {
             transition={{ duration: 0.3, ease: easeOut }}
           >
             <ul className="space-y-1">
-              {site.nav.map((item, index) => (
-                <li key={item.id} className="overflow-hidden">
+              {[{ label: 'Home', page: 'index' }, ...site.nav].map((item, index) => (
+                <li key={item.page} className="overflow-hidden">
                   <m.a
-                    href={`#${item.id}`}
-                    className="block py-2 text-[2.5rem] font-semibold tracking-[-0.04em] text-fg"
+                    href={pageHref(item.page)}
+                    aria-current={currentPage === item.page ? 'page' : undefined}
+                    className={`block py-2 text-[2.5rem] font-semibold tracking-[-0.04em] ${
+                      currentPage === item.page ? 'text-fg' : 'text-muted'
+                    }`}
                     initial={reduce ? { opacity: 0 } : { opacity: 0, transform: 'translateY(100%)' }}
                     animate={{ opacity: 1, transform: 'translateY(0%)' }}
                     transition={{ duration: 0.6, delay: 0.05 + index * 0.05, ease: easeOut }}

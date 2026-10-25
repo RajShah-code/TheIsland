@@ -13,25 +13,107 @@ export const site = {
   // Public URL of this site once deployed. Used for the canonical link and the Open Graph image.
   url: 'https://rajshah-code.github.io/TheIsland/', // TODO: confirm once hosting is chosen
 
-  seo: {
-    title: 'TheIsland: a dynamic island for Windows 11',
-    description:
-      'A free, open-source dynamic island for Windows 11. Music, your calendar and quick system controls in a notch at the top of your screen, with first-class Claude Code support for developers.',
-    // A 1200×630 PNG at public/og-image.png (WhatsApp and LinkedIn don't show SVG previews).
-    ogImage: 'og-image.png', // TODO: add the image
+  // A 1200×630 PNG at public/og-image.png for link previews (WhatsApp and LinkedIn don't show SVG).
+  ogImage: 'og-image.png', // TODO: add the image
+
+  // Every page of the site: its HTML file, and the title and description shown in the browser tab, in search
+  // results and in link previews. The key matches <body data-page="..."> in that file.
+  pages: {
+    index: {
+      file: '',
+      title: 'TheIsland: a dynamic island for Windows 11',
+      description:
+        'A free, open-source dynamic island for Windows 11. Music, your calendar and quick system controls in a notch at the top of your screen, with first-class Claude Code support for developers.',
+    },
+    features: {
+      file: 'features.html',
+      title: 'Features · TheIsland',
+      description: 'Music, calendar, system controls and Claude Code support: everything TheIsland can do, and what’s coming next.',
+    },
+    download: {
+      file: 'download.html',
+      title: 'Download TheIsland for Windows 11',
+      description: 'Download TheIsland, a free dynamic island for Windows 11. Install steps, requirements and what’s new in each version.',
+    },
+    help: {
+      file: 'help.html',
+      title: 'Help · TheIsland',
+      description: 'Answers and guides for TheIsland: setting up your calendar, connecting Claude Code, uninstalling, and how to report a bug.',
+    },
+    support: {
+      file: 'support.html',
+      title: 'Support TheIsland',
+      description: 'TheIsland is free and stays free. Sponsor it, or help in ways that cost nothing.',
+    },
+    privacy: {
+      file: 'privacy.html',
+      title: 'Privacy policy · TheIsland',
+      description: 'What TheIsland stores, what it connects to and why. No account, no ads, no analytics.',
+    },
+    security: {
+      file: 'security.html',
+      title: 'Security · TheIsland',
+      description: 'How TheIsland keeps your Claude Code approvals and your data safe, and how to report a security problem.',
+    },
+    license: {
+      file: 'license.html',
+      title: 'License · TheIsland',
+      description: 'TheIsland is free and open source under the MIT license.',
+    },
   },
 
   repo,
   releases: `${repo}/releases/latest`,
+  releasesApi: 'https://api.github.com/repos/RajShah-code/TheIsland/releases',
 
+  // The main menu. `page` is a key of `pages` above.
   nav: [
-    { label: 'Features', id: 'features' },
-    { label: 'Developers', id: 'developers' },
-    { label: 'Privacy', id: 'privacy' },
-    { label: 'FAQ', id: 'faq' },
-    { label: 'Feedback', id: 'feedback' },
-    { label: 'Support', id: 'support' },
+    { label: 'Features', page: 'features' },
+    { label: 'Download', page: 'download' },
+    { label: 'Help', page: 'help' },
+    { label: 'Support', page: 'support' },
   ],
+
+  // Home page sections that lead to the other pages.
+  home: {
+    highlights: {
+      eyebrow: 'What it does',
+      title: 'Made for everyone, built for developers too.',
+      items: [
+        {
+          id: 'everyday',
+          title: 'For every day',
+          text: 'What’s playing, what’s next on your calendar and quick system controls, without opening a window.',
+          points: ['Music from any player', 'Your Google Calendar week', 'Volume, brightness, Wi-Fi and more', 'Hides during fullscreen'],
+          link: { label: 'See every feature', href: 'features.html' },
+        },
+        {
+          id: 'developers',
+          title: 'For developers',
+          text: 'First-class Claude Code support: approve commands and answer questions without leaving your work.',
+          points: ['Readable approvals, no “Always allow”', 'Questions with real buttons', 'Every session and subagent, live', 'Stays on your PC'],
+          link: { label: 'Claude Code support', href: 'features.html#developers' },
+        },
+      ],
+    },
+    privacy: {
+      eyebrow: 'Privacy & safety',
+      title: 'Private by default.',
+      points: [
+        { title: 'Nothing is collected', text: 'No account, no ads and no analytics.' },
+        { title: 'Stays on your PC', text: 'Your data and your Claude Code approvals never leave it.' },
+        { title: 'Open source', text: 'Read every line before you run it.' },
+      ],
+      links: [
+        { label: 'Privacy policy', href: 'privacy.html' },
+        { label: 'How it stays safe', href: 'security.html' },
+      ],
+    },
+    cta: {
+      title: 'Give your Windows an island.',
+      text: 'Free, open source and about a minute to set up.',
+    },
+  },
 
   hero: {
     eyebrow: 'A dynamic island for Windows 11',
@@ -57,8 +139,14 @@ export const site = {
     ],
   },
 
+  featuresPage: {
+    eyebrow: 'Features',
+    title: 'Everything the island can do.',
+    intro: 'Everyday widgets for everyone, and first-class Claude Code support for developers. More is on the way.',
+  },
+
   everyday: {
-    id: 'features',
+    id: 'everyday',
     eyebrow: 'For every day',
     title: 'The things you check all day, in one place.',
     items: [
@@ -117,6 +205,19 @@ export const site = {
     ],
   },
 
+  download: {
+    eyebrow: 'Download',
+    title: 'Get TheIsland for Windows.',
+    intro: 'Free and open source. The installer sets everything up for you, and Node.js or other tools are not needed.',
+    requirements: ['Windows 11, 64-bit', 'About 370 MB of disk space', 'Claude Code only if you want its support (optional)'],
+    store: 'Coming soon to the Microsoft Store, with automatic updates.',
+    smartscreen: {
+      title: 'If Windows says it “protected your PC”',
+      text: 'The installer isn’t code-signed yet, so Windows SmartScreen may warn about it the first time. Click More info, then Run anyway. You can compare the file with the SHA-256 checksum below, and every line of the source is on GitHub.',
+    },
+    changelog: { eyebrow: 'What’s new', title: 'Release notes', empty: 'Release notes are loading from GitHub.' },
+  },
+
   steps: {
     eyebrow: 'How it works',
     title: 'Set up in a minute.',
@@ -137,8 +238,8 @@ export const site = {
   },
 
   trust: {
-    eyebrow: 'Privacy & safety',
-    title: 'Private by default.',
+    eyebrow: 'How it stays safe',
+    title: 'Built to be trusted with your terminal.',
     intro:
       'TheIsland runs on your PC and keeps your data there. And because it can answer Claude Code for you, it is careful about how it does that.',
     items: [
@@ -176,6 +277,65 @@ export const site = {
       { id: 'github', title: 'GitHub', text: 'Pull requests, reviews and deploys that need your attention.' },
     ],
     cta: { label: 'Suggest a widget', href: `${repo}/issues/new?template=feature_request.md` },
+  },
+
+  help: {
+    eyebrow: 'Help',
+    title: 'How can we help?',
+    intro: 'Quick answers, step-by-step guides, and where to go if something isn’t working.',
+    guidesTitle: 'Guides',
+    guides: [
+      {
+        id: 'calendar-ical',
+        title: 'Show your Google Calendar (the quick way)',
+        steps: [
+          'In Google Calendar on the web, open Settings and pick your calendar on the left.',
+          'Copy Secret address in iCal format.',
+          'In TheIsland, open Settings (the gear in the open island, or the tray icon) and go to Calendar.',
+          'Paste the address and press Save. Your events appear within a minute and refresh every 15 minutes.',
+        ],
+        note: 'Google only updates this address every few hours. For changes within seconds, use Google sign-in below.',
+      },
+      {
+        id: 'calendar-google',
+        title: 'Show your Google Calendar with Google sign-in',
+        steps: [
+          'In the Google Cloud Console, create a project and enable the Google Calendar API.',
+          'Set up the OAuth consent screen as External and add yourself as a test user (or publish it, so the sign-in doesn’t expire every 7 days).',
+          'Create an OAuth client of type Desktop app.',
+          'In TheIsland, open Settings > Calendar, paste the client ID and secret, and press Sign in with Google.',
+        ],
+        note: 'TheIsland only asks for read-only access and shows the calendars ticked in Google Calendar.',
+      },
+      {
+        id: 'claude-code',
+        title: 'Connect Claude Code',
+        steps: [
+          'Right-click the white pill in your tray and choose Install Claude Code hooks...',
+          'Read the change it shows for your Claude Code settings. A backup is saved before anything is written.',
+          'Press Install. The next time Claude Code needs permission or asks a question, the island opens.',
+        ],
+        note: 'To disconnect, choose Remove Claude Code hooks... in the same menu. Only TheIsland’s own entries are removed.',
+      },
+      {
+        id: 'customize',
+        title: 'Make the island yours',
+        steps: [
+          'Open Settings from the tray or the gear in the open island.',
+          'Turn widgets on or off and drag them into the order you like.',
+          'Choose what the closed notch shows (the time, the date or nothing) and which system controls appear.',
+        ],
+      },
+      {
+        id: 'uninstall',
+        title: 'Uninstall TheIsland',
+        steps: [
+          'If you connected Claude Code, choose Remove Claude Code hooks... in the tray first.',
+          'Open Windows Settings > Apps > Installed apps, find TheIsland and choose Uninstall.',
+          'Your settings stay in %USERPROFILE%\\.theisland. Delete that folder to remove them too.',
+        ],
+      },
+    ],
   },
 
   faq: {
@@ -252,6 +412,15 @@ export const site = {
       cta: 'Sponsor on GitHub',
       note: 'Optional, always. Every feature stays free either way.',
     },
+    // Ways to give without a GitHub account. Leave `href` (or `upi`) empty and the option stays hidden.
+    other: {
+      title: 'No GitHub account? No problem.',
+      text: 'Give any amount with UPI, a card or PayPal. No sign-up needed.',
+      options: [
+        { id: 'upi', title: 'Pay with UPI', text: 'Google Pay, PhonePe, Paytm or any UPI app.', upi: '' }, // TODO: your UPI ID, e.g. 'name@okhdfcbank'
+        { id: 'kofi', title: 'Card or PayPal', text: 'A one-time amount through Ko-fi.', href: '' }, // TODO: e.g. 'https://ko-fi.com/yourname'
+      ],
+    },
     freeTitle: 'Ways to help that cost nothing',
     free: [
       { id: 'star', title: 'Star it on GitHub', text: 'Helps other people find it.', href: repo },
@@ -323,14 +492,87 @@ export const site = {
     ],
   },
 
+  security: {
+    eyebrow: 'Security',
+    title: 'Security',
+    intro:
+      'TheIsland can answer Claude Code permission prompts, so security matters more here than in most widgets. This is how it protects you, and how to tell us about a problem.',
+    reportTitle: 'Found a security problem?',
+    reportText:
+      'Please don’t open a public issue. Report it privately on GitHub instead: say what an attacker could do, the steps to reproduce it, and your TheIsland and Windows versions. You’ll get a reply as soon as possible, and credit in the release notes if you want it.',
+    report: { label: 'Report privately', href: `${repo}/security/advisories/new` },
+    countsTitle: 'What counts as a security problem',
+    counts: [
+      'Any way for another program, a web page or another user to send or answer an approval.',
+      'The connection accepting a request without its token, or listening on anything other than 127.0.0.1.',
+      'The Claude Code installer losing or damaging your Claude Code settings.',
+      'An approval card that shows something different from what Claude Code actually runs.',
+      'Prompt text, commands, tokens or calendar addresses being written to disk or sent anywhere.',
+    ],
+  },
+
+  license: {
+    eyebrow: 'License',
+    title: 'MIT License',
+    intro: 'TheIsland is free and open source. In short, you can use, copy, change and share it, as long as the copyright notice stays with it.',
+    summary: [
+      { title: 'You can', items: ['Use it, at home or at work', 'Read and change the code', 'Share it, changed or not'] },
+      { title: 'You must', items: ['Keep the copyright and license notice in copies'] },
+      { title: 'It comes with', items: ['No warranty: it is provided as is'] },
+    ],
+    fullTitle: 'Full license text',
+    text: `MIT License
+
+Copyright (c) 2026 Raj Shah
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`,
+    thirdParty:
+      'TheIsland is built on other open-source projects, such as Electron, React and Tailwind CSS, each under its own license.',
+  },
+
   footer: {
-    links: [
-      { label: 'Privacy policy', href: 'privacy.html', internal: true },
-      { label: 'Sponsor', href: sponsors },
-      { label: 'GitHub', href: repo },
-      { label: 'Releases', href: `${repo}/releases` },
-      { label: 'License', href: `${repo}/blob/main/LICENSE` },
-      { label: 'Security', href: `${repo}/blob/main/SECURITY.md` },
+    columns: [
+      {
+        title: 'Product',
+        links: [
+          { label: 'Features', href: 'features.html' },
+          { label: 'Download', href: 'download.html' },
+          { label: 'Help', href: 'help.html' },
+          { label: 'Support', href: 'support.html' },
+        ],
+      },
+      {
+        title: 'Trust',
+        links: [
+          { label: 'Privacy policy', href: 'privacy.html' },
+          { label: 'Security', href: 'security.html' },
+          { label: 'License', href: 'license.html' },
+        ],
+      },
+      {
+        title: 'Open source',
+        links: [
+          { label: 'Source code', href: repo, external: true },
+          { label: 'Report a bug', href: `${repo}/issues/new?template=bug_report.md`, external: true },
+          { label: 'Sponsor', href: sponsors, external: true },
+        ],
+      },
     ],
     disclaimer: 'Claude and Claude Code are trademarks of Anthropic. TheIsland is not affiliated with Anthropic.',
   },

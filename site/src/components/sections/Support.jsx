@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowUpRight, Bug, Heart, Lightbulb, ShareNetwork, Star } from '@phosphor-icons/react'
+import { ArrowUpRight, Bug, CreditCard, CurrencyInr, Heart, Lightbulb, ShareNetwork, Star } from '@phosphor-icons/react'
 import { site } from '../../content/site.js'
 import Button from '../ui/Button.jsx'
 import Reveal from '../ui/Reveal.jsx'
@@ -14,10 +14,11 @@ const row =
 function ShareRow({ item, Icon }) {
   const [copied, setCopied] = useState(false)
   const share = async () => {
-    const url = window.location.href.split('#')[0]
+    // Share the home page, whichever page the button is on.
+    const url = new URL('./', window.location.href).href
     try {
       if (navigator.share) {
-        await navigator.share({ title: site.seo.title, url })
+        await navigator.share({ title: site.pages.index.title, url })
         return
       }
       await navigator.clipboard.writeText(url)
@@ -49,11 +50,81 @@ function RowBody({ item, Icon }) {
   )
 }
 
-export default function Support() {
+// UPI: opens the payment app on a phone; on a computer, the ID can be copied into any UPI app.
+function UpiOption({ option }) {
+  const [copied, setCopied] = useState(false)
+  const pay = `upi://pay?pa=${encodeURIComponent(option.upi)}&pn=${encodeURIComponent(site.studio)}&cu=INR`
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(option.upi)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+  return (
+    <div className="flex flex-col gap-4 rounded-2xl bg-white/[0.03] p-5 ring-1 ring-inset ring-line sm:flex-row sm:items-center">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06] ring-1 ring-inset ring-line">
+        <CurrencyInr size={18} weight="light" />
+      </span>
+      <span className="min-w-0">
+        <span className="block font-medium">{option.title}</span>
+        <span className="mt-0.5 block text-sm text-muted">
+          {option.text} UPI ID: <span className="font-mono text-fg">{option.upi}</span>
+        </span>
+      </span>
+      <span className="flex gap-2 sm:ml-auto">
+        <Button href={pay} size="sm" className="sm:hidden">
+          Open UPI app
+        </Button>
+        <Button size="sm" variant="secondary" onClick={copy}>
+          {copied ? 'Copied' : 'Copy UPI ID'}
+        </Button>
+      </span>
+    </div>
+  )
+}
+
+// Ways to give without a GitHub account. Only the options with a link (or UPI ID) filled in are shown.
+function OtherWays() {
+  const { other } = site.support
+  const options = other.options.filter((o) => o.href || o.upi)
+  if (options.length === 0) return null
+  return (
+    <Reveal className="mt-4 rounded-[2rem] p-6 ring-1 ring-inset ring-line md:p-8">
+      <h3 className="text-[1.125rem] font-semibold tracking-[-0.02em]">{other.title}</h3>
+      <p className="mt-2 text-[0.9375rem] text-muted">{other.text}</p>
+      <div className="mt-6 space-y-3">
+        {options.map((option) =>
+          option.upi ? (
+            <UpiOption key={option.id} option={option} />
+          ) : (
+            <div
+              key={option.id}
+              className="flex flex-col gap-4 rounded-2xl bg-white/[0.03] p-5 ring-1 ring-inset ring-line sm:flex-row sm:items-center"
+            >
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06] ring-1 ring-inset ring-line">
+                <CreditCard size={18} weight="light" />
+              </span>
+              <span className="min-w-0">
+                <span className="block font-medium">{option.title}</span>
+                <span className="mt-0.5 block text-sm text-muted">{option.text}</span>
+              </span>
+              <Button href={option.href} size="sm" variant="secondary" icon="external" target="_blank" rel="noreferrer" className="sm:ml-auto">
+                Donate
+              </Button>
+            </div>
+          ),
+        )}
+      </div>
+    </Reveal>
+  )
+}
+
+export default function Support({ first = false }) {
   const { support } = site
   const { sponsor } = support
   return (
-    <Section id={support.id} eyebrow={support.eyebrow} title={support.title} intro={support.intro}>
+    <Section id={support.id} eyebrow={support.eyebrow} title={support.title} intro={support.intro} first={first}>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <Reveal className="bezel">
           <div className="bezel-core flex h-full flex-col p-7 md:p-9">
@@ -96,6 +167,7 @@ export default function Support() {
           </ul>
         </Reveal>
       </div>
+      <OtherWays />
     </Section>
   )
 }

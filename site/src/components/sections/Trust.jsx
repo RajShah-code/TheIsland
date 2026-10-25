@@ -8,7 +8,7 @@ const spans = ['md:col-span-2', 'md:col-span-2', 'md:col-span-2', 'md:col-span-3
 export default function Trust() {
   const { trust } = site
   return (
-    <Section id="privacy" eyebrow={trust.eyebrow} title={trust.title} intro={trust.intro}>
+    <Section id="safety" eyebrow={trust.eyebrow} title={trust.title} intro={trust.intro}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
         {trust.items.map((item, i) => (
           <Reveal key={item.title} delay={(i % 3) * 0.06} className={`bezel ${spans[i]}`}>
