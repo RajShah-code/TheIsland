@@ -129,7 +129,14 @@ Claude Code events, a plain wallpaper, no taskbar). Captions are optional; sugge
 | `3-claude-approval.png` | Approve Claude Code without leaving your work |
 | `4-claude-question.png` | Answer Claude's questions with one click |
 
-Store logo (optional): `build/appx/Square150x150Logo.scale-200.png` (300×300).
+Store logos (optional, but they look better than the package icon): in `docs/store-art/`, made by
+`scripts/make-store-art.ps1`.
+
+| Slot | File |
+|---|---|
+| 2:3 Poster art (720×1080 or 1440×2160) | `poster-2x3-1440x2160.png` |
+| 1:1 Box art (1080×1080 or 2160×2160) | `box-1x1-2160x2160.png` |
+| 1:1 App tile icon (300×300, only used on Xbox) | skip |
 
 ### Search terms (up to 7)
 
