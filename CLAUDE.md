@@ -54,12 +54,16 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
     calendar URL is encrypted with `safeStorage` (DPAPI) and never sent to a renderer.
   - `calendar-url.js` set the calendar from a pasted address or the clipboard / remove it (tray and settings window).
     The settings window sends the address in; it is never sent back out.
+  - `updates.js` the update notice, GitHub installer build only (not the Store build): a minute after start
+    and every 12 h (or on resume after that) it asks GitHub's latest-release API and reports a newer version.
+    Downloads nothing; the tray ("Update available...") and Settings > About link to the site's Download page.
+    `updates.check` turns it off. `ISLAND_UPDATE_URL` points it at a fake server for testing.
   - `tray.js` Settings..., hide switch, approvals switch, hook install/remove, calendar URL, quit.
 - `src/shared/hooks-installer.mjs` safe installer used by both the tray and `scripts/hooks.mjs`.
 - `src/shared/settings-model.mjs` the settings model: defaults, `normalizeSettings` (clamps, drops unknown
   keys), `applySettingsPatch`, `sortByOrder`, `WIDGET_IDS`, `SYSTEM_ITEMS`. Shape: `approvalsEnabled`,
   `approvalTimeoutSec` (30..285, the hook dies at 300 s), `pill { leftFallback, rightFallback }`,
-  `widgets { order, hidden }`, `system { order, hidden, controlStyle }`, `claude { buddy }`, `island { ghostOpacity }`.
+  `widgets { order, hidden }`, `system { order, hidden, controlStyle }`, `claude { buddy }`, `island { ghostOpacity }`, `updates { check }`.
   Start with Windows is a `TheIsland.lnk` in the user's Startup folder (not stored); the Run registry entry
   Electron's login item writes was never launched by Explorer on this machine.
 - `hook/TheIslandRelay.cs` the relay Claude Code runs, built to `resources/theisland-relay.exe` (C# 5, so
@@ -77,7 +81,7 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
   `orderedWidgets(settings)` applies the user's order and hidden list.
 - `src/renderer/src/components/System.jsx` the System tab, laid out like the Mac's Control Center (modules,
   ring gauges, thick sliders, round buttons). To look at it without the island: `npx vite --config
-  src/renderer/preview/vite.config.mjs`, then open /preview/system.html (`?style=both|icon|label`, `&all`) or /preview/calendar.html.
+  src/renderer/preview/vite.config.mjs`, then open /preview/system.html (`?style=both|icon|label`, `&all`) or /preview/calendar.html, /preview/settings.html (`?update`, `?store`; a fake settingsApi).
 - `src/renderer/settings.html` + `src/renderer/src/settings/` the settings page, a second renderer entry with
   its own preload (`src/preload/settings.js`, `window.settingsApi`) and stylesheet, so none of it loads in
   the island.

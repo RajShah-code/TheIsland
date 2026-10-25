@@ -449,7 +449,8 @@ export const site = {
         title: 'What TheIsland connects to',
         items: [
           'Only your calendar, and only if you set one up. With an iCal address, TheIsland downloads that address. With Google sign-in, it talks to Google’s sign-in and Calendar services with read-only access to your calendars. Google’s privacy policy applies to that connection.',
-          'Nothing else. TheIsland does not check for updates in the background, does not send usage statistics, and does not contact Archway.',
+          'Updates, in the version from GitHub: about twice a day TheIsland asks GitHub which release is the newest, and tells you when there is a newer one. It sends nothing about you or your PC beyond what any web request carries (GitHub sees your IP address), and it downloads nothing on its own. You can turn this off in Settings > About. The Microsoft Store version leaves updates to the Store.',
+          'Nothing else. TheIsland does not send usage statistics and does not contact Archway.',
         ],
       },
       {

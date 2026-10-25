@@ -1,4 +1,4 @@
-// Tray menu: Settings window, hide switch, approvals switch, hook install/remove (with the diff shown
+// Tray menu: update notice, Settings window, hide switch, approvals switch, hook install/remove (with the diff shown
 // first), calendar URL, quit. Everything else lives in the settings window (settings-window.js).
 import { app, dialog, Menu, nativeImage, Tray } from 'electron'
 import {
@@ -47,6 +47,8 @@ export function createTray({
   onCalendarChanged,
   onOpenSettings,
   isHidden,
+  getUpdate,
+  onOpenDownload,
   onToggleHidden,
   onQuit,
   hideShortcut
@@ -113,9 +115,12 @@ export function createTray({
   function refresh() {
     const cfg = getSettings()
     const installed = isInstalled()
+    const update = getUpdate()
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: 'TheIsland', enabled: false },
+        // A newer GitHub release (updates.js): opens the website's Download page.
+        ...(update ? [{ label: `Update available: version ${update.version}...`, click: onOpenDownload }] : []),
         { type: 'separator' },
         { label: 'Settings...', click: onOpenSettings },
         {

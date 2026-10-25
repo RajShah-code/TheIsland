@@ -24,7 +24,7 @@ const SECTIONS = [
   { id: 'claude', label: 'Claude Code', title: 'Claude Code', help: 'Session status and permission prompts from Claude Code.' },
   { id: 'island', label: 'Island', title: 'Island', help: 'How the island behaves on your desktop.' },
   { id: 'calendar', label: 'Calendar', title: 'Calendar', help: 'Your Google Calendar in the island, through a Google sign-in or its private iCal address.' },
-  { id: 'about', label: 'About', title: 'About', help: 'Version and footprint.' }
+  { id: 'about', label: 'About', title: 'About', help: 'Version, updates and footprint.' }
 ]
 
 const ICONS = {
@@ -146,6 +146,9 @@ export default function Settings() {
                     {ICONS[s.id]}
                   </svg>
                   {s.label}
+                  {s.id === 'about' && view?.update && (
+                    <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent" title="Update available" />
+                  )}
                 </button>
               </li>
             )
@@ -170,7 +173,7 @@ export default function Settings() {
               {section === 'claude' && <ClaudeSection view={view} save={save} />}
               {section === 'island' && <IslandSection view={view} save={save} />}
               {section === 'calendar' && <CalendarSection view={view} setView={setView} />}
-              {section === 'about' && <AboutSection view={view} />}
+              {section === 'about' && <AboutSection view={view} save={save} />}
             </div>
           )}
         </div>
@@ -648,12 +651,26 @@ function GoogleCard({ view, setView }) {
   )
 }
 
-function AboutSection({ view }) {
+function AboutSection({ view, save }) {
   return (
     <Card>
       <Row label="TheIsland" help="A light dynamic island for Windows 11.">
         <span className="text-[12px] text-white/55 tabular-nums">Version {view.version}</span>
       </Row>
+      {view.update && (
+        <Row
+          label={`Version ${view.update.version} is available`}
+          help="Download the new installer and run it. It replaces this version and keeps your settings."
+        >
+          <LinkButton name="download">Download</LinkButton>
+        </Row>
+      )}
+      {/* The Store version is updated by the Store. */}
+      {!view.store && (
+        <Row label="Check for updates" help="Asks GitHub about twice a day whether a newer version is out. Nothing is downloaded or installed on its own.">
+          <Toggle checked={view.updates.check} onChange={(on) => save({ updates: { check: on } })} label="Check for updates" />
+        </Row>
+      )}
       <Row
         label="Footprint"
         help="At rest the island uses about 120 to 200 MB of memory and close to 0% CPU. This window exists only while it is open, so closing it gives its memory back."

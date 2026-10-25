@@ -15,6 +15,7 @@ import { startRelayServer } from './relay-server'
 import { createSettingsWindowManager } from './settings-window'
 import { createTray } from './tray'
 import { createPointerTracker } from './pointer'
+import { startUpdateCheck } from './updates'
 import { createIslandWindow } from './window'
 
 // The Microsoft Store build (MSIX). Windows gives it its app ID and starts it at sign-in through the
@@ -123,14 +124,21 @@ const SETTINGS_PAGES = {
   settings: 'ms-settings:'
 }
 
-// Pages the settings window can open (About section, and Windows' startup page for the Store build).
+// Pages the settings window and the tray can open (About section, the update notice, and Windows'
+// startup page for the Store build).
 const WEBSITE = 'https://rajshah-code.github.io/TheIsland/'
 const SETTINGS_LINKS = {
   website: WEBSITE,
+  download: WEBSITE + 'download.html',
   privacy: WEBSITE + 'privacy.html',
   license: WEBSITE + 'license.html',
   help: WEBSITE + 'help.html',
   startup: 'ms-settings:startupapps'
+}
+
+function openLink(name) {
+  if (typeof name !== 'string' || !Object.hasOwn(SETTINGS_LINKS, name)) return
+  shell.openExternal(SETTINGS_LINKS[name]).catch((e) => log('could not open', name, e.message))
 }
 
 function openSettingsPage(name) {
@@ -221,7 +229,8 @@ function start() {
       store: STORE,
       calendarConfigured: hasCalendarUrl(),
       google: { signedIn: isGoogleSignedIn(), clientId: googleClientId() || '' },
-      version: app.getVersion()
+      version: app.getVersion(),
+      update: updates?.get() ?? null
     }
   }
   // One path for every change, from the tray or the settings window: apply, push live, sync both UIs.
@@ -236,11 +245,23 @@ function start() {
     if (settingsWin.isOpen()) settingsWin.send('settings:changed', settingsView())
     tray?.refresh()
   }
+  // The Store updates its own build; only the GitHub installer build looks for new releases.
+  const updates = STORE
+    ? null
+    : startUpdateCheck({
+        isEnabled: () => getSettings().updates.check,
+        onChange: () => {
+          if (settingsWin.isOpen()) settingsWin.send('settings:changed', settingsView())
+          tray?.refresh()
+        }
+      })
   tray = createTray({
     onConfigChanged: settingsChanged,
     onCalendarChanged: calendarChanged,
     onOpenSettings: () => settingsWin.open(),
     isHidden: () => hidden,
+    getUpdate: () => updates?.get() ?? null,
+    onOpenDownload: () => openLink('download'),
     onToggleHidden: () => setHidden(!hidden),
     onQuit: () => {
       // Quit from the tray: show the goodbye for a moment first.
@@ -322,7 +343,9 @@ function start() {
     if (!settingsWin.isSender(e) || !isPlainObject(patch)) return null
     const login = isPlainObject(patch.island) ? patch.island.startWithWindows : undefined
     if (typeof login === 'boolean' && login !== startsWithWindows()) setStartWithWindows(login)
+    const checked = getSettings().updates.check
     updateSettings(patch)
+    if (getSettings().updates.check !== checked) updates?.setEnabled(!checked)
     settingsChanged()
     return settingsView()
   })
@@ -350,8 +373,7 @@ function start() {
   })
   // Fixed pages only: the settings window names one, it never passes an address.
   ipcMain.on('settings:open-link', (e, name) => {
-    if (!settingsWin.isSender(e) || typeof name !== 'string' || !Object.hasOwn(SETTINGS_LINKS, name)) return
-    shell.openExternal(SETTINGS_LINKS[name]).catch((err) => log('could not open', name, err.message))
+    if (settingsWin.isSender(e)) openLink(name)
   })
   ipcMain.handle('settings:calendar-remove', (e) => {
     if (!settingsWin.isSender(e)) return null
@@ -365,6 +387,7 @@ function start() {
     hub.releaseAll()
     server.close()
     media.stop()
+    updates?.stop()
     pointer?.stop()
     tray.destroy()
     log('quit')

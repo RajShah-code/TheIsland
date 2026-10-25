@@ -67,7 +67,9 @@ export const DEFAULT_SETTINGS = {
   widgets: { order: [...WIDGET_IDS], hidden: [] },
   system: { order: [...SYSTEM_IDS], hidden: [], controlStyle: 'both' },
   claude: { buddy: true },
-  island: { ghostOpacity: 0.15 }
+  island: { ghostOpacity: 0.15 },
+  // The GitHub installer build asks GitHub for a newer release now and then (src/main/updates.js).
+  updates: { check: true }
 }
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
@@ -123,7 +125,8 @@ export function normalizeSettings(raw, base = DEFAULT_SETTINGS) {
       ghostOpacity:
         Math.round(num(g('island').ghostOpacity, GHOST_MIN, GHOST_MAX, base.island?.ghostOpacity ?? d.island.ghostOpacity) * 100) /
         100
-    }
+    },
+    updates: { check: bool(g('updates').check, base.updates?.check ?? d.updates.check) }
   }
 }
 
@@ -133,7 +136,7 @@ export function applySettingsPatch(current, patch) {
   if (!isObj(patch)) return current
   const merged = { ...current }
   for (const k of ['approvalsEnabled', 'approvalTimeoutSec']) if (k in patch) merged[k] = patch[k]
-  for (const k of ['pill', 'widgets', 'system', 'claude', 'island'])
+  for (const k of ['pill', 'widgets', 'system', 'claude', 'island', 'updates'])
     if (isObj(patch[k])) merged[k] = { ...current[k], ...patch[k] }
   return normalizeSettings(merged, current)
 }
