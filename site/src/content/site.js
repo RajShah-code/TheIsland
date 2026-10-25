@@ -69,8 +69,7 @@ export const site = {
   // The main menu. `page` is a key of `pages` above.
   nav: [
     { label: 'Features', page: 'features' },
-    { label: 'Download', page: 'download' },
-    { label: 'Help', page: 'help' },
+    { label: 'Get Help', page: 'help' },
     { label: 'Support Us', page: 'support' },
   ],
 
@@ -553,7 +552,7 @@ SOFTWARE.`,
         links: [
           { label: 'Features', href: 'features.html' },
           { label: 'Download', href: 'download.html' },
-          { label: 'Help', href: 'help.html' },
+          { label: 'Get Help', href: 'help.html' },
           { label: 'Support Us', href: 'support.html' },
         ],
       },
@@ -570,7 +569,7 @@ SOFTWARE.`,
         links: [
           { label: 'Source code', href: repo, external: true },
           { label: 'Report a bug', href: `${repo}/issues/new?template=bug_report.md`, external: true },
-          { label: 'Sponsor', href: sponsors, external: true },
+          { label: 'Become a Sponsor', href: sponsors, external: true },
         ],
       },
     ],

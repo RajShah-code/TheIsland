@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, m, useMotionValueEvent, useReducedMotion, useScroll } from 'motion/react'
 import { site } from '../../content/site.js'
-import { useLatestRelease } from '../../lib/release.js'
 import { currentPage, pageHref } from '../../lib/pages.js'
 import { easeOut } from '../../lib/motion.js'
 import { IslandMark } from '../ui/Marks.jsx'
@@ -12,7 +11,6 @@ import Button from '../ui/Button.jsx'
 export default function Nav() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const release = useLatestRelease()
   const { scrollY } = useScroll()
   const reduce = useReducedMotion()
 
@@ -72,7 +70,8 @@ export default function Nav() {
 
           <div className="flex items-center gap-2">
             <div className="hidden sm:block">
-              <Button href={release.url} size="sm">
+              {/* The Download page, not the file: it has the version, requirements and install notes. */}
+              <Button href={pageHref('download')} size="sm" aria-current={currentPage === 'download' ? 'page' : undefined}>
                 Download
               </Button>
             </div>
@@ -134,8 +133,8 @@ export default function Nav() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.35, ease: easeOut }}
             >
-              <Button href={release.url} icon="download" className="w-full justify-between" onClick={() => setOpen(false)}>
-                Download for Windows
+              <Button href={pageHref('download')} icon="download" className="w-full justify-between" onClick={() => setOpen(false)}>
+                Download
               </Button>
             </m.div>
           </m.div>

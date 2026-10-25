@@ -19,16 +19,18 @@ export default function Footer() {
               <IslandMark className="size-6" />
               {site.name}
             </a>
-            <p className="mt-4 max-w-[30ch] text-sm leading-relaxed text-muted">
-              A free dynamic island for Windows 11. A product by{' '}
-              {site.studioUrl ? (
-                <a href={site.studioUrl} className="transition-opacity duration-200 hover:opacity-80">
-                  {studio}
-                </a>
-              ) : (
-                studio
-              )}
-              .
+            <p className="mt-4 text-sm leading-relaxed text-muted">
+              <span className="block">A free dynamic island for Windows 11.</span>
+              <span className="mt-1 block">
+                A product by{' '}
+                {site.studioUrl ? (
+                  <a href={site.studioUrl} className="transition-opacity duration-200 hover:opacity-80">
+                    {studio}
+                  </a>
+                ) : (
+                  studio
+                )}
+              </span>
             </p>
           </div>
           {footer.columns.map((column) => (
