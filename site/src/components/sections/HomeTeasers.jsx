@@ -1,9 +1,9 @@
-import { ArrowRight, Check, Code, Sparkle } from '@phosphor-icons/react'
+import { ArrowRight, Check, Code, SunHorizon } from '@phosphor-icons/react'
 import { site } from '../../content/site.js'
 import Reveal from '../ui/Reveal.jsx'
 import Section from '../ui/Section.jsx'
 
-const icons = { everyday: Sparkle, developers: Code }
+const icons = { everyday: SunHorizon, developers: Code }
 
 function TextLink({ href, children }) {
   return (
