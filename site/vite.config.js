@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -27,5 +28,14 @@ function siteMeta() {
 export default defineConfig({
   base: process.env.BASE || '/',
   plugins: [react(), tailwindcss(), siteMeta()],
+  // Two pages: the site and the privacy policy.
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(import.meta.dirname, 'index.html'),
+        privacy: resolve(import.meta.dirname, 'privacy.html'),
+      },
+    },
+  },
   server: { port: 5180, strictPort: true },
 })

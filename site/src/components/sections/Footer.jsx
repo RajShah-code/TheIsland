@@ -32,7 +32,11 @@ export default function Footer() {
           <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
             {footer.links.map((link) => (
               <li key={link.label}>
-                <a href={link.href} target="_blank" rel="noreferrer" className="text-muted transition-colors duration-200 hover:text-fg">
+                <a
+                  href={link.href}
+                  {...(link.internal ? {} : { target: '_blank', rel: 'noreferrer' })}
+                  className="text-muted transition-colors duration-200 hover:text-fg"
+                >
                   {link.label}
                 </a>
               </li>

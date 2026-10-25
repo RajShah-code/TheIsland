@@ -247,7 +247,7 @@ export const site = {
       'TheIsland has no ads, no account and no paid version. If it makes your day a little easier, you can help keep it going.',
     sponsor: {
       title: 'Sponsor on GitHub',
-      text: 'Monthly from $3, or a one-time amount you choose. It pays for things like a code-signing certificate, so Windows stops warning people when they install TheIsland, and for time to build new widgets.',
+      text: 'Monthly from $3, or a one-time amount you choose. It pays for the time to build new widgets and fix bugs, and helps keep TheIsland free, with no ads and no tracking.',
       href: sponsors,
       cta: 'Sponsor on GitHub',
       note: 'Optional, always. Every feature stays free either way.',
@@ -261,8 +261,71 @@ export const site = {
     ],
   },
 
+  // The privacy policy page (privacy.html). Keep it in step with what the app actually does.
+  privacy: {
+    title: 'Privacy policy',
+    updated: '25 October 2026',
+    intro:
+      'TheIsland runs on your PC. It has no account, no ads and no analytics, and Archway receives no data from the app. This page explains what it stores, what it connects to and why.',
+    sections: [
+      {
+        title: 'What stays on your computer',
+        items: [
+          'Your settings are kept in %USERPROFILE%\\.theisland on your PC.',
+          'Your calendar address and your Google sign-in are encrypted with Windows’ own data protection (DPAPI) and never shown to anyone.',
+          'A small log file (at most 256 KB) helps with troubleshooting. It never contains prompt text, commands, calendar events or web addresses.',
+          'Music, system information (CPU, memory, battery, volume and so on) and the clock are read from Windows on your PC and are not sent anywhere.',
+        ],
+      },
+      {
+        title: 'What TheIsland connects to',
+        items: [
+          'Only your calendar, and only if you set one up. With an iCal address, TheIsland downloads that address. With Google sign-in, it talks to Google’s sign-in and Calendar services with read-only access to your calendars. Google’s privacy policy applies to that connection.',
+          'Nothing else. TheIsland does not check for updates in the background, does not send usage statistics, and does not contact Archway.',
+        ],
+      },
+      {
+        title: 'Claude Code (optional)',
+        items: [
+          'If you connect Claude Code, its hooks send events to TheIsland over 127.0.0.1, a connection that never leaves your PC, protected by a random token.',
+          'Prompt text and tool output are removed before anything reaches TheIsland, and approvals are answered inside the app.',
+          'TheIsland does not send any of this off your PC. Claude Code itself works with Anthropic under Anthropic’s own terms, which TheIsland does not change.',
+        ],
+      },
+      {
+        title: 'This website',
+        items: [
+          'The site has no analytics, no tracking and no cookies. Its fonts are served from the site itself.',
+          'It is hosted on GitHub Pages, and GitHub may keep standard server logs such as IP addresses (see GitHub’s privacy statement).',
+          'The Download button asks GitHub for the latest release, so your browser contacts GitHub when the page loads.',
+        ],
+      },
+      {
+        title: 'Downloads, donations and stores',
+        items: [
+          'Installers come from GitHub Releases (or from the Microsoft Store, under Microsoft’s privacy statement, once it is listed there).',
+          'Sponsorships are handled by GitHub Sponsors and Stripe. Archway only sees what GitHub shows a sponsored developer, such as your GitHub username.',
+        ],
+      },
+      {
+        title: 'Changes and contact',
+        items: [
+          'If this policy changes, this page will be updated and the date at the top will change.',
+          'Questions? Open an issue on GitHub. For a security or privacy problem, please use the private report link instead.',
+        ],
+      },
+    ],
+    links: [
+      { label: 'Open an issue', href: `${repo}/issues` },
+      { label: 'Report a problem privately', href: `${repo}/security/advisories/new` },
+      { label: 'GitHub privacy statement', href: 'https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement' },
+      { label: 'Google privacy policy', href: 'https://policies.google.com/privacy' },
+    ],
+  },
+
   footer: {
     links: [
+      { label: 'Privacy policy', href: 'privacy.html', internal: true },
       { label: 'Sponsor', href: sponsors },
       { label: 'GitHub', href: repo },
       { label: 'Releases', href: `${repo}/releases` },
