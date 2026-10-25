@@ -9,6 +9,7 @@ import Trust from './components/sections/Trust.jsx'
 import ComingSoon from './components/sections/ComingSoon.jsx'
 import Faq from './components/sections/Faq.jsx'
 import Feedback from './components/sections/Feedback.jsx'
+import Support from './components/sections/Support.jsx'
 import Footer from './components/sections/Footer.jsx'
 
 const loadMotionFeatures = () => import('./lib/motionFeatures.js').then((module) => module.default)
@@ -31,6 +32,7 @@ export default function App() {
           <ComingSoon />
           <Faq />
           <Feedback />
+          <Support />
         </main>
         <Footer />
       </MotionConfig>

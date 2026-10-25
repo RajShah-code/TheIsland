@@ -2,6 +2,7 @@
 // Anything marked TODO is waiting for a final link or wording.
 
 const repo = 'https://github.com/RajShah-code/TheIsland'
+const sponsors = 'https://github.com/sponsors/RajShah-code'
 
 export const site = {
   name: 'TheIsland',
@@ -29,6 +30,7 @@ export const site = {
     { label: 'Privacy', id: 'privacy' },
     { label: 'FAQ', id: 'faq' },
     { label: 'Feedback', id: 'feedback' },
+    { label: 'Support', id: 'support' },
   ],
 
   hero: {
@@ -180,7 +182,10 @@ export const site = {
     eyebrow: 'Questions',
     title: 'What people ask first.',
     items: [
-      { q: 'Is it free?', a: 'Yes. TheIsland is free and open source under the MIT license. No account, no ads.' },
+      {
+        q: 'Is it free?',
+        a: 'Yes. TheIsland is free and open source under the MIT license. No account, no ads, and no paid version. If you’d like to help keep it going, you can sponsor it on GitHub.',
+      },
       {
         q: 'What can it show?',
         a: 'What’s playing in any music app, your Google Calendar, the time and date, and system controls such as volume, brightness, Wi-Fi and Bluetooth. Developers can also connect Claude Code.',
@@ -234,8 +239,31 @@ export const site = {
     },
   },
 
+  support: {
+    id: 'support',
+    eyebrow: 'Support TheIsland',
+    title: 'Free, and it stays that way.',
+    intro:
+      'TheIsland has no ads, no account and no paid version. If it makes your day a little easier, you can help keep it going.',
+    sponsor: {
+      title: 'Sponsor on GitHub',
+      text: 'Monthly from $3, or a one-time amount you choose. It pays for things like a code-signing certificate, so Windows stops warning people when they install TheIsland, and for time to build new widgets.',
+      href: sponsors,
+      cta: 'Sponsor on GitHub',
+      note: 'Optional, always. Every feature stays free either way.',
+    },
+    freeTitle: 'Ways to help that cost nothing',
+    free: [
+      { id: 'star', title: 'Star it on GitHub', text: 'Helps other people find it.', href: repo },
+      { id: 'share', title: 'Tell a friend', text: 'Know someone who’d like a dynamic island on Windows? Send them this page.' },
+      { id: 'bug', title: 'Report a bug', text: 'Something off? Every report makes it better.', href: `${repo}/issues/new?template=bug_report.md` },
+      { id: 'idea', title: 'Suggest a widget', text: 'Tell us what you’d like on the island next.', href: `${repo}/issues/new?template=feature_request.md` },
+    ],
+  },
+
   footer: {
     links: [
+      { label: 'Sponsor', href: sponsors },
       { label: 'GitHub', href: repo },
       { label: 'Releases', href: `${repo}/releases` },
       { label: 'License', href: `${repo}/blob/main/LICENSE` },

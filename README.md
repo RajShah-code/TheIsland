@@ -138,6 +138,13 @@ Issues and pull requests are welcome. Keep it light: the app should stay around 
 when idle, so please measure after UI changes (see `CLAUDE.md`), avoid infinite CSS animations and polling, and
 don't add heavy dependencies.
 
+## Support TheIsland
+
+TheIsland is free and stays free: no ads, no account and no paid version. If it makes your day a little easier,
+you can [sponsor it on GitHub](https://github.com/sponsors/RajShah-code), monthly from $3 or a one-time amount.
+It pays for things like a code-signing certificate, so Windows stops warning people when they install it, and for
+time to build new widgets. Starring the repo, sharing it and reporting bugs help just as much.
+
 ## License
 
 [MIT](LICENSE)
