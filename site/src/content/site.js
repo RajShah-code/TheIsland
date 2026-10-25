@@ -42,7 +42,7 @@ export const site = {
     },
     support: {
       file: 'support.html',
-      title: 'Support TheIsland',
+      title: 'Support us · TheIsland',
       description: 'TheIsland is free and stays free. Sponsor it, or help in ways that cost nothing.',
     },
     privacy: {
@@ -71,7 +71,7 @@ export const site = {
     { label: 'Features', page: 'features' },
     { label: 'Download', page: 'download' },
     { label: 'Help', page: 'help' },
-    { label: 'Support', page: 'support' },
+    { label: 'Support Us', page: 'support' },
   ],
 
   // Home page sections that lead to the other pages.
@@ -401,7 +401,7 @@ export const site = {
 
   support: {
     id: 'support',
-    eyebrow: 'Support TheIsland',
+    eyebrow: 'Support us',
     title: 'Free, and it stays that way.',
     intro:
       'TheIsland has no ads, no account and no paid version. If it makes your day a little easier, you can help keep it going.',
@@ -554,7 +554,7 @@ SOFTWARE.`,
           { label: 'Features', href: 'features.html' },
           { label: 'Download', href: 'download.html' },
           { label: 'Help', href: 'help.html' },
-          { label: 'Support', href: 'support.html' },
+          { label: 'Support Us', href: 'support.html' },
         ],
       },
       {

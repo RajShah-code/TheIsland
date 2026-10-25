@@ -23,7 +23,7 @@ export default function CtaBand() {
               Download for Windows
             </Button>
             <Button href={pageHref('support')} variant="secondary" icon="right">
-              Support TheIsland
+              Support us
             </Button>
           </div>
         </div>
