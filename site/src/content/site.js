@@ -13,9 +13,9 @@ export const site = {
   url: 'https://rajshah-code.github.io/TheIsland/', // TODO: confirm once hosting is chosen
 
   seo: {
-    title: 'TheIsland: answer Claude Code without leaving your work',
+    title: 'TheIsland: a dynamic island for Windows 11',
     description:
-      'A free, open-source dynamic island for Windows 11. Approve Claude Code permission prompts and answer its questions from the top of your screen, plus music, calendar and system controls.',
+      'A free, open-source dynamic island for Windows 11. Music, your calendar and quick system controls in a notch at the top of your screen, with first-class Claude Code support for developers.',
     // A 1200×630 PNG at public/og-image.png (WhatsApp and LinkedIn don't show SVG previews).
     ogImage: 'og-image.png', // TODO: add the image
   },
@@ -25,38 +25,76 @@ export const site = {
 
   nav: [
     { label: 'Features', id: 'features' },
+    { label: 'Developers', id: 'developers' },
     { label: 'Privacy', id: 'privacy' },
     { label: 'FAQ', id: 'faq' },
     { label: 'Feedback', id: 'feedback' },
   ],
 
   hero: {
-    eyebrow: 'Free for Windows 11',
-    tagline: 'Answer Claude Code without leaving your work.',
+    eyebrow: 'A dynamic island for Windows 11',
+    tagline: 'Everything you need, one glance away.',
     statement:
-      'TheIsland is a small notch at the top of your screen. When Claude Code needs permission or asks you to choose, it opens right where you are, so you answer in one click and keep going.',
+      'TheIsland is a small notch at the top of your screen. It shows what’s playing, what’s next on your calendar and how your PC is doing, and opens the moment you hover it. Developers can answer Claude Code from it too.',
     secondary: { label: 'View on GitHub', href: repo },
   },
 
   facts: [
-    { title: 'One click', text: 'Allow, deny or pick an answer without switching windows.' },
+    { title: 'One glance', text: 'Music, your next event and quick controls without opening a window.' },
     { title: 'About 120 MB', text: 'Of memory, and close to 0% CPU while nothing is happening.' },
-    { title: 'Stays on your PC', text: 'No account and no telemetry. It only talks to 127.0.0.1.' },
-    { title: 'No Node.js needed', text: 'Install it, connect Claude Code from the tray, done.' },
+    { title: 'Out of your way', text: 'It stays small when it’s quiet and hides during fullscreen games and videos.' },
+    { title: 'Free and private', text: 'No account, no ads and no tracking. Open source on GitHub.' },
   ],
 
-  problem: {
-    eyebrow: 'The problem',
-    title: 'Claude stops to ask. You are in another window.',
+  why: {
+    eyebrow: 'Why an island',
+    title: 'The little things shouldn’t need a whole window.',
     body: [
-      'Claude Code pauses for permission before it runs a command or edits a file, and sometimes it needs you to choose between options. If you are reading docs or working in another app, it simply waits, and you find out minutes later. Checking back every few minutes breaks your focus the other way round.',
-      'TheIsland puts those moments at the top of your screen. It shows exactly what Claude wants to do, and your answer goes straight back to the session. Everything else, from the terminal to your settings, stays as it was.',
+      'Checking what’s playing, when your next meeting starts or whether Bluetooth is on usually means opening an app, a flyout or a browser tab. Each one is small, but they add up, and every switch pulls you out of what you were doing.',
+      'TheIsland keeps those things in one place at the top of your screen. It stays out of the way when nothing is happening, and opens when you hover it or when something needs you.',
     ],
   },
 
-  features: {
-    eyebrow: 'What’s inside',
-    title: 'Everything Claude needs from you, in one place.',
+  everyday: {
+    id: 'features',
+    eyebrow: 'For every day',
+    title: 'The things you check all day, in one place.',
+    items: [
+      {
+        id: 'music',
+        lead: true,
+        title: 'Music, whatever is playing',
+        text: 'Play, pause and skip from the notch, with the song and its cover art. It works with Spotify, a browser tab or any app that shows up in Windows’ media controls, with no account or API key.',
+      },
+      {
+        id: 'calendar',
+        title: 'Calendar',
+        text: 'Your week from Google Calendar, Monday to Sunday, with each day’s events one hover away.',
+      },
+      {
+        id: 'system',
+        title: 'System controls',
+        text: 'CPU, memory and battery at a glance, volume and brightness sliders, and quick toggles like Wi-Fi, Bluetooth and Night light.',
+      },
+      {
+        id: 'fullscreen',
+        title: 'Out of the way',
+        text: 'It hides during fullscreen games and videos. Touch the top edge of the screen to bring it back.',
+      },
+      {
+        id: 'arrange',
+        title: 'Yours to arrange',
+        text: 'Pick which widgets show and in what order, and choose what the closed notch shows: the time, the date or nothing.',
+      },
+    ],
+  },
+
+  developers: {
+    id: 'developers',
+    eyebrow: 'For developers',
+    title: 'First-class Claude Code support.',
+    intro:
+      'If you use Claude Code, the island becomes its control panel. It shows what each session is doing and opens when Claude needs you, so you answer without leaving your work.',
     items: [
       {
         id: 'approvals',
@@ -67,32 +105,12 @@ export const site = {
       {
         id: 'questions',
         title: 'Questions with real buttons',
-        text: 'When Claude asks you to choose, you see the question and its options, not raw JSON. One click answers it. Several questions get checkboxes and a Send button.',
+        text: 'When Claude asks you to choose, you see the question and its options, not raw JSON. One click answers it.',
       },
       {
         id: 'sessions',
         title: 'Every session, live',
-        text: 'Each Claude Code session with its project, its state and the tool it is running, plus the subagents working in the background.',
-      },
-      {
-        id: 'music',
-        title: 'Music',
-        text: 'Play, pause and skip whatever is playing: Spotify, a browser tab or any app in Windows’ media controls. No account or API key.',
-      },
-      {
-        id: 'calendar',
-        title: 'Calendar',
-        text: 'Your week from Google Calendar, Monday to Sunday, with each day’s events one hover away.',
-      },
-      {
-        id: 'system',
-        title: 'System',
-        text: 'CPU, memory and battery at a glance, volume and brightness sliders, and quick toggles like Wi-Fi, Bluetooth and Night light.',
-      },
-      {
-        id: 'fullscreen',
-        title: 'Out of the way',
-        text: 'It hides during fullscreen games and videos. Touch the top edge of the screen to bring it back.',
+        text: 'Each session with its project, its state and the tool it is running, plus the subagents working in the background.',
       },
     ],
   },
@@ -101,54 +119,75 @@ export const site = {
     eyebrow: 'How it works',
     title: 'Set up in a minute.',
     items: [
-      { title: 'Install TheIsland', text: 'Run the installer. A small white pill appears in your tray.' },
       {
-        title: 'Connect Claude Code',
-        text: 'Choose Install Claude Code hooks in the tray. You see exactly what changes in your settings, and a backup is saved first.',
+        title: 'Install TheIsland',
+        text: 'Run the installer. The island appears at the top of your screen and a small white pill in your tray.',
       },
       {
-        title: 'Keep working',
-        text: 'The next time Claude needs you, the island opens. Answer there, or let it fall back to the terminal.',
+        title: 'Make it yours',
+        text: 'Open Settings from the tray to pick your widgets, connect your calendar and choose what the notch shows.',
+      },
+      {
+        title: 'Using Claude Code? Connect it',
+        text: 'Choose Install Claude Code hooks in the tray. You see exactly what changes in your settings, and a backup is saved first.',
       },
     ],
   },
 
   trust: {
     eyebrow: 'Privacy & safety',
-    title: 'Built to be trusted with your terminal.',
-    intro: 'TheIsland can approve commands on your machine, so it is careful about how it does that.',
+    title: 'Private by default.',
+    intro:
+      'TheIsland runs on your PC and keeps your data there. And because it can answer Claude Code for you, it is careful about how it does that.',
     items: [
       {
-        title: 'Local only',
-        text: 'The hooks talk to the app over 127.0.0.1 with a random token. Requests from web pages are refused, and approvals are answered inside the app, never over the network.',
-      },
-      {
-        title: 'Your settings, backed up',
-        text: 'The installer shows the change before writing, refuses to touch a file it can’t read, saves a timestamped backup and only adds or removes its own entries.',
-      },
-      {
-        title: 'Falls back to the terminal',
-        text: 'If the island is closed or you don’t answer in time, Claude Code asks in the terminal exactly as before.',
-      },
-      {
         title: 'Nothing is collected',
-        text: 'No account and no analytics. Prompt text and tool output are dropped before anything reaches the app, and none of it is written to disk.',
+        text: 'No account, no ads and no analytics. The only network calls go to your calendar.',
+      },
+      {
+        title: 'Your calendar stays yours',
+        text: 'Your calendar address and Google sign-in are encrypted with Windows’ own protection and only used to fetch your events.',
       },
       {
         title: 'Open source',
         text: 'Every line is on GitHub under the MIT license, so you can read what it does before you run it.',
       },
+      {
+        title: 'Claude Code stays local',
+        text: 'The hooks talk to the app over 127.0.0.1 with a random token, and requests from web pages are refused. If the island is closed or you don’t answer, Claude Code asks in the terminal as before.',
+      },
+      {
+        title: 'Your settings, backed up',
+        text: 'Connecting Claude Code shows the change before writing, refuses to touch a file it can’t read, saves a timestamped backup and only adds or removes its own entries.',
+      },
     ],
+  },
+
+  comingSoon: {
+    eyebrow: 'On the way',
+    title: 'The island keeps growing.',
+    intro: 'More widgets are planned. These are next on the list, and you can suggest your own.',
+    // Planned, not promised: edit this list as plans change.
+    items: [
+      { id: 'weather', title: 'Weather', text: 'Today’s forecast and the temperature outside, at a glance.' },
+      { id: 'focus', title: 'Focus timer', text: 'A Pomodoro timer that counts down right in the notch.' },
+      { id: 'github', title: 'GitHub', text: 'Pull requests, reviews and deploys that need your attention.' },
+    ],
+    cta: { label: 'Suggest a widget', href: `${repo}/issues/new?template=feature_request.md` },
   },
 
   faq: {
     eyebrow: 'Questions',
     title: 'What people ask first.',
     items: [
-      { q: 'Is it free?', a: 'Yes. TheIsland is free and open source under the MIT license.' },
+      { q: 'Is it free?', a: 'Yes. TheIsland is free and open source under the MIT license. No account, no ads.' },
+      {
+        q: 'What can it show?',
+        a: 'What’s playing in any music app, your Google Calendar, the time and date, and system controls such as volume, brightness, Wi-Fi and Bluetooth. Developers can also connect Claude Code.',
+      },
       {
         q: 'Do I need Claude Code?',
-        a: 'For the approvals and questions, yes. Music, calendar, the clock and the System tab work on their own.',
+        a: 'No. Claude Code support is optional, for developers who use it. Everything else works on its own.',
       },
       {
         q: 'Windows says it protected my PC. Is it safe?',
@@ -161,11 +200,11 @@ export const site = {
       { q: 'Does it work on Mac or Linux?', a: 'Not yet. It is built for Windows 11.' },
       {
         q: 'Is it made by Anthropic?',
-        a: 'No. TheIsland is an independent product by Archway. It is not affiliated with or endorsed by Anthropic.',
+        a: 'No. TheIsland is an independent product by Archway. Its Claude Code support is not affiliated with or endorsed by Anthropic.',
       },
       {
         q: 'How do I uninstall it?',
-        a: 'Choose Remove Claude Code hooks in the tray first, then remove TheIsland in Windows Settings > Apps. Your settings stay in %USERPROFILE%\\.theisland until you delete that folder.',
+        a: 'If you connected Claude Code, choose Remove Claude Code hooks in the tray first. Then remove TheIsland in Windows Settings > Apps. Your settings stay in %USERPROFILE%\\.theisland until you delete that folder.',
       },
     ],
   },
@@ -183,7 +222,7 @@ export const site = {
       },
       {
         title: 'Suggest a feature',
-        text: 'A widget you want, or something that would make answering Claude easier.',
+        text: 'A widget you want on the island, or something that would make it better.',
         href: `${repo}/issues/new?template=feature_request.md`,
         cta: 'Share an idea',
       },

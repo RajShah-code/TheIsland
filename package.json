@@ -3,7 +3,7 @@
   "productName": "TheIsland",
   "version": "0.1.0",
   "private": true,
-  "description": "A light dynamic-island overlay for Windows 11: Claude Code status and approvals, music, calendar and clock.",
+  "description": "A light dynamic island for Windows 11: music, calendar, clock and system controls, with first-class Claude Code support for developers.",
   "main": "out/main/index.js",
   "author": "Raj Shah",
   "license": "MIT",

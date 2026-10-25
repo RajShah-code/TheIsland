@@ -2,10 +2,11 @@ import { LazyMotion, MotionConfig } from 'motion/react'
 import Nav from './components/sections/Nav.jsx'
 import Hero from './components/sections/Hero.jsx'
 import Facts from './components/sections/Facts.jsx'
-import Problem from './components/sections/Problem.jsx'
-import Features from './components/sections/Features.jsx'
+import Why from './components/sections/Why.jsx'
+import { Developers, Everyday } from './components/sections/Features.jsx'
 import Steps from './components/sections/Steps.jsx'
 import Trust from './components/sections/Trust.jsx'
+import ComingSoon from './components/sections/ComingSoon.jsx'
 import Faq from './components/sections/Faq.jsx'
 import Feedback from './components/sections/Feedback.jsx'
 import Footer from './components/sections/Footer.jsx'
@@ -22,10 +23,12 @@ export default function App() {
         <main>
           <Hero />
           <Facts />
-          <Problem />
-          <Features />
+          <Why />
+          <Everyday />
+          <Developers />
           <Steps />
           <Trust />
+          <ComingSoon />
           <Faq />
           <Feedback />
         </main>

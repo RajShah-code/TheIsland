@@ -1,21 +1,23 @@
 # TheIsland
 
-**Approve Claude Code permission prompts without leaving what you're doing.**
+**A dynamic island for Windows 11. Everything you need, one glance away.**
 
-TheIsland is a small "dynamic island" for Windows 11: a black notch at the top centre of the screen. It shows
-what your Claude Code sessions are doing, pops open with **Allow** / **Deny** when one needs permission, and
-holds a few everyday widgets. It stays out of the way and costs about 120 MB of memory and close to 0% CPU at rest.
+TheIsland is a small black notch at the top centre of your screen. It shows what's playing, what's next on your
+calendar and how your PC is doing, and opens the moment you hover it. For developers, it has first-class
+Claude Code support: it shows what each session is doing and lets you answer permission prompts and questions
+without leaving your work. It stays out of the way and costs about 120 MB of memory and close to 0% CPU at rest.
+
+A free product by Archway.
 
 > TheIsland is an independent project. It is not made by, affiliated with or endorsed by Anthropic.
 > "Claude" and "Claude Code" are trademarks of Anthropic.
 
 ## What it does
 
-Hover the notch to open it. It has three tabs:
+Hover the notch to open it.
 
-- **Claude Code** (while a session is open): every live session with its project folder, state (working,
-  waiting for you, done) and current tool, plus running subagents. When Claude Code asks for permission, the
-  island opens by itself and shows the exact command or file, with **Allow**, **Deny** and **Answer in terminal**.
+**For every day**
+
 - **Home**: **Music** (play/pause, next, previous, title and cover art; works with Spotify, browsers and any
   player that shows up in Windows' media controls, no account or API key), a 12-hour **Clock**, and a
   **Calendar** with a Monday to Sunday week strip and that day's events from Google Calendar.
@@ -25,21 +27,44 @@ Hover the notch to open it. It has three tabs:
 When nothing is going on the notch is small and empty. When a fullscreen game or video is in front, it hides;
 touch the top edge of the screen near the centre to bring it back.
 
+**For developers**
+
+- **Claude Code** (while a session is open): every live session with its project folder, state (working,
+  waiting for you, done) and current tool, plus running subagents. When Claude Code asks for permission, the
+  island opens by itself and shows the exact command or file, with **Allow**, **Deny** and **Answer in terminal**.
+  When Claude asks you to choose, the question shows with its options as buttons.
+
 Order and hide widgets and system controls, change the approval timeout and more in **Settings** (the gear in
-the open island, or the tray icon).
+the open island, or the tray icon). More widgets are planned, such as weather, a focus timer and GitHub;
+[suggest one](../../issues/new?template=feature_request.md).
 
 ## Install
 
 1. Download `TheIsland-Setup-<version>.exe` from the [latest release](../../releases/latest) and run it.
 2. The installer isn't code-signed yet, so Windows SmartScreen may say it "protected your PC". Click
    **More info** > **Run anyway**. You can check the download against the SHA-256 listed in the release.
-3. TheIsland starts and puts a small white pill in the tray. Right-click it > **Install Claude Code hooks...**
+3. TheIsland starts at the top of your screen and puts a small white pill in the tray. Right-click the pill >
+   **Settings...** to pick widgets and connect your calendar.
+4. Using Claude Code? Right-click the pill > **Install Claude Code hooks...** (see below).
 
-Requires Windows 11 and Claude Code. Node.js is not needed.
+Requires Windows 11. Claude Code is optional, and Node.js is not needed.
 
-To uninstall, first choose **Remove Claude Code hooks...** in the tray, then remove TheIsland in Windows
+To uninstall, first choose **Remove Claude Code hooks...** in the tray if you connected Claude Code, then remove TheIsland in Windows
 Settings > Apps. (Hooks left behind are harmless: they exit right away when TheIsland isn't there.) Your
 settings stay in `%USERPROFILE%\.theisland`; delete that folder to remove them too.
+
+## Set up the calendar
+
+Two ways, both in **Settings** > **Calendar**:
+
+- **iCal address** (no setup, but Google only updates this copy every few hours). In Google Calendar on the web,
+  open **Settings**, pick your calendar and copy **Secret address in iCal format**. Paste it in TheIsland and
+  press **Save**. It refreshes every 15 minutes.
+- **Google sign-in** (changes show up within seconds, but needs a one-time Google Cloud setup). Create a
+  project, enable the **Google Calendar API**, set up the OAuth consent screen (External, add yourself as a test
+  user, or publish it so the sign-in doesn't expire every 7 days), and create an OAuth client of type
+  **Desktop app**. Paste its client ID and secret and press **Sign in with Google**. TheIsland only asks for
+  read-only access and reads the calendars ticked in Google Calendar.
 
 ## Connect Claude Code
 
@@ -57,19 +82,6 @@ When TheIsland isn't running, the hooks exit right away and Claude Code works as
 an approval in the island in time (2 minutes by default, up to 4 3/4 in Settings), or press **Answer in
 terminal**, the normal terminal prompt appears. There is no "Always allow": each Allow covers only the one
 request shown. Turn approvals off in the tray menu to only see status.
-
-## Set up the calendar
-
-Two ways, both in **Settings** > **Calendar**:
-
-- **iCal address** (no setup, but Google only updates this copy every few hours). In Google Calendar on the web,
-  open **Settings**, pick your calendar and copy **Secret address in iCal format**. Paste it in TheIsland and
-  press **Save**. It refreshes every 15 minutes.
-- **Google sign-in** (changes show up within seconds, but needs a one-time Google Cloud setup). Create a
-  project, enable the **Google Calendar API**, set up the OAuth consent screen (External, add yourself as a test
-  user, or publish it so the sign-in doesn't expire every 7 days), and create an OAuth client of type
-  **Desktop app**. Paste its client ID and secret and press **Sign in with Google**. TheIsland only asks for
-  read-only access and reads the calendars ticked in Google Calendar.
 
 ## Privacy
 
