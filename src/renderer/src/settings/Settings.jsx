@@ -400,13 +400,26 @@ function IslandSection({ view, save }) {
             onCommit={(v) => save({ island: { ghostOpacity: v } })}
           />
         </Row>
-        <Row label="Start with Windows" help="Open TheIsland when you sign in.">
-          <Toggle
-            checked={view.island.startWithWindows}
-            onChange={(on) => save({ island: { startWithWindows: on } })}
-            label="Start with Windows"
-          />
-        </Row>
+        {view.store ? (
+          // The Store version starts through its package's startup task, which Windows switches on and off.
+          <Row label="Start with Windows" help="On by default. Turn it off or on in Windows Settings > Apps > Startup.">
+            <button
+              type="button"
+              onClick={() => api.openLink('startup')}
+              className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12]`}
+            >
+              Open startup settings
+            </button>
+          </Row>
+        ) : (
+          <Row label="Start with Windows" help="Open TheIsland when you sign in.">
+            <Toggle
+              checked={view.island.startWithWindows}
+              onChange={(on) => save({ island: { startWithWindows: on } })}
+              label="Start with Windows"
+            />
+          </Row>
+        )}
       </Card>
       <Card title="Shortcuts">
         <Row label="Hide or show the island" help="Also in the tray menu.">
@@ -646,6 +659,29 @@ function AboutSection({ view }) {
         help="At rest the island uses about 120 to 200 MB of memory and close to 0% CPU. This window exists only while it is open, so closing it gives its memory back."
       />
       <Row label="Settings file" help="Saved in %USERPROFILE%\.theisland\config.json. The calendar address and Google sign-in are encrypted with Windows DPAPI." />
+      <Row label="Privacy" help="TheIsland collects nothing. The policy explains what it stores and what it connects to.">
+        <LinkButton name="privacy">Privacy policy</LinkButton>
+      </Row>
+      <Row label="More" help="Free and open source under the MIT license.">
+        <span className="flex flex-wrap justify-end gap-2">
+          <LinkButton name="help">Help</LinkButton>
+          <LinkButton name="license">License</LinkButton>
+          <LinkButton name="website">Website</LinkButton>
+        </span>
+      </Row>
     </Card>
+  )
+}
+
+// Opens one of the fixed pages the main process knows (it never takes an address from here).
+function LinkButton({ name, children }) {
+  return (
+    <button
+      type="button"
+      onClick={() => api.openLink(name)}
+      className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12]`}
+    >
+      {children}
+    </button>
   )
 }

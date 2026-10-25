@@ -111,6 +111,12 @@ Test without Claude Code: pipe event JSON into the relay while the app runs, for
 - `npm test` tests the relay exe against a fake island server (`scripts/test-relay.mjs`).
 - `npm run dist` builds the installer (`electron-builder.yml`) into `dist/`. Releases: bump `version` in
   package.json, commit, push a `v<version>` tag; `.github/workflows/release.yml` builds a draft GitHub Release.
+- `npm run dist:store` builds the Microsoft Store package (`dist/TheIsland-Store-<version>.appx`, unsigned;
+  Microsoft signs it). Its identity in `electron-builder.yml` (`appx`) must match Partner Center. Tiles come
+  from `node scripts/make-appx-assets.mjs` (build/appx); the startup task from `build/appx-extensions.xml`.
+  In the Store build `process.windowsStore` is true: index.js skips its Startup-folder shortcut and app ID,
+  and Settings shows "Open startup settings" (Windows Settings > Apps > Startup) instead of the switch.
+  `toolsets.winCodeSign: 1.1.0` is needed: the default 2018 makepri.exe fails on Windows 11.
 - `npm run hooks:diff | hooks:install | hooks:uninstall | hooks:status`, add `-- --settings <file>` to test on a copy.
 
 ## Measuring

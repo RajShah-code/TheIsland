@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('settingsApi', {
   googleSignIn: (creds) => ipcRenderer.invoke('settings:google-sign-in', creds),
   googleSignOut: () => ipcRenderer.invoke('settings:google-sign-out'),
   openGoogleConsole: () => ipcRenderer.send('settings:open-google-console'),
+  openLink: (name) => ipcRenderer.send('settings:open-link', name),
   onChange: (cb) => {
     const fn = (_e, data) => cb(data)
     ipcRenderer.on('settings:changed', fn)

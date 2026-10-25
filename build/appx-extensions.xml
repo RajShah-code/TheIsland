@@ -1,0 +1,6 @@
+
+        <!-- Microsoft Store build: start TheIsland when the user signs in. On by default after the first
+             launch; the user turns it off or on in Windows Settings > Apps > Startup. -->
+        <desktop:Extension Category="windows.startupTask" Executable="app\TheIsland.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="TheIslandStartup" Enabled="true" DisplayName="TheIsland" />
+        </desktop:Extension>

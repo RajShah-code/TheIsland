@@ -17,11 +17,15 @@ import { createTray } from './tray'
 import { createPointerTracker } from './pointer'
 import { createIslandWindow } from './window'
 
+// The Microsoft Store build (MSIX). Windows gives it its app ID and starts it at sign-in through the
+// package's startup task (build/appx-extensions.xml), so the shortcut code below is skipped there.
+const STORE = process.windowsStore === true
+
 useDataDir()
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
-  app.setAppUserModelId('TheIsland')
+  if (!STORE) app.setAppUserModelId('TheIsland')
   // Smaller footprint: the island has no use for these.
   app.commandLine.appendSwitch('disable-features', 'SpareRendererForSitePerProcess,MediaRouter')
   // A small 2D overlay doesn't need the GPU; software rendering saves ~100 MB.
@@ -65,9 +69,10 @@ function oldLoginItemOptions() {
 }
 const regDelete = (key, value) => execFile('reg', ['delete', key, '/v', value, '/f'], () => {})
 function startsWithWindows() {
-  return fs.existsSync(startupShortcut())
+  return !STORE && fs.existsSync(startupShortcut())
 }
 function setStartWithWindows(on) {
+  if (STORE) return
   try {
     if (on) {
       const ok = shell.writeShortcutLink(startupShortcut(), {
@@ -90,6 +95,7 @@ function setStartWithWindows(on) {
 }
 // Move a Run entry from an earlier version over to the shortcut.
 function migrateLoginItem() {
+  if (STORE) return
   try {
     if (!app.getLoginItemSettings(oldLoginItemOptions()).openAtLogin) return
     app.setLoginItemSettings({ ...oldLoginItemOptions(), openAtLogin: false })
@@ -115,6 +121,16 @@ const SETTINGS_PAGES = {
   network: 'ms-settings:network',
   bluetooth: 'ms-settings:bluetooth',
   settings: 'ms-settings:'
+}
+
+// Pages the settings window can open (About section, and Windows' startup page for the Store build).
+const WEBSITE = 'https://rajshah-code.github.io/TheIsland/'
+const SETTINGS_LINKS = {
+  website: WEBSITE,
+  privacy: WEBSITE + 'privacy.html',
+  license: WEBSITE + 'license.html',
+  help: WEBSITE + 'help.html',
+  startup: 'ms-settings:startupapps'
 }
 
 function openSettingsPage(name) {
@@ -202,6 +218,7 @@ function start() {
     return {
       ...s,
       island: { ...s.island, startWithWindows: startsWithWindows() },
+      store: STORE,
       calendarConfigured: hasCalendarUrl(),
       google: { signedIn: isGoogleSignedIn(), clientId: googleClientId() || '' },
       version: app.getVersion()
@@ -330,6 +347,11 @@ function start() {
   })
   ipcMain.on('settings:open-google-console', (e) => {
     if (settingsWin.isSender(e)) shell.openExternal('https://console.cloud.google.com/apis/library/calendar-json.googleapis.com')
+  })
+  // Fixed pages only: the settings window names one, it never passes an address.
+  ipcMain.on('settings:open-link', (e, name) => {
+    if (!settingsWin.isSender(e) || typeof name !== 'string' || !Object.hasOwn(SETTINGS_LINKS, name)) return
+    shell.openExternal(SETTINGS_LINKS[name]).catch((err) => log('could not open', name, err.message))
   })
   ipcMain.handle('settings:calendar-remove', (e) => {
     if (!settingsWin.isSender(e)) return null

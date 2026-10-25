@@ -36,5 +36,27 @@ nsis:
   artifactName: TheIsland-Setup-${version}.${ext}
   include: build/installer.nsh
 
+# Microsoft Store package (npm run dist:store). The identity must match Partner Center exactly
+# (Product management > Product identity), or the Store rejects the upload. Microsoft signs it after
+# certification, so it is uploaded unsigned. Tile images: build/appx (scripts/make-appx-assets.mjs).
+appx:
+  identityName: RajShah-code.TheIsland
+  publisher: CN=D1CD4C9E-94A4-4892-B57E-2086BBC4BE6C
+  publisherDisplayName: RajShah-code
+  applicationId: TheIsland
+  displayName: TheIsland
+  backgroundColor: '#111111'
+  languages: [en-US]
+  minVersion: 10.0.22000.0
+  maxVersionTested: 10.0.26100.0
+  # Starts the app at sign-in (src/main/index.js skips its own Startup shortcut in the Store build).
+  customExtensionsPath: build/appx-extensions.xml
+  artifactName: TheIsland-Store-${version}.${ext}
+
+# Windows SDK tools from Windows Kits 10.0.26100. The default 2018 set's makepri.exe can't read any appx
+# manifest on Windows 11 (PRI191 0x8007007e), so the Store package couldn't be built with it.
+toolsets:
+  winCodeSign: 1.1.0
+
 # No auto-update yet: releases are downloaded from GitHub by hand.
 publish: null
