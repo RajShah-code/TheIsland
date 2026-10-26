@@ -168,6 +168,14 @@ export default function Support({ first = false }) {
         </Reveal>
       </div>
       <OtherWays />
+      <Reveal as="p" className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 px-2 text-sm text-subtle">
+        <span>{support.legal.text}</span>
+        {support.legal.links.map((link) => (
+          <a key={link.label} href={link.href} className="text-muted transition-colors duration-200 hover:text-fg">
+            {link.label}
+          </a>
+        ))}
+      </Reveal>
     </Section>
   )
 }

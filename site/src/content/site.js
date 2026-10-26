@@ -60,6 +60,26 @@ export const site = {
       title: 'License · TheIsland',
       description: 'TheIsland is free and open source under the MIT license.',
     },
+    terms: {
+      file: 'terms.html',
+      title: 'Terms and conditions · TheIsland',
+      description: 'The terms for using TheIsland, this website and the optional ways to support it.',
+    },
+    refunds: {
+      file: 'refunds.html',
+      title: 'Refunds and cancellations · TheIsland',
+      description: 'How refunds and cancellations work for voluntary contributions to TheIsland.',
+    },
+    delivery: {
+      file: 'delivery.html',
+      title: 'Shipping and delivery · TheIsland',
+      description: 'TheIsland is a free digital download. Nothing is shipped, and contributions unlock nothing.',
+    },
+    contact: {
+      file: 'contact.html',
+      title: 'Contact us · TheIsland',
+      description: 'How to reach Archway, the maker of TheIsland, about the app, a payment or anything else.',
+    },
   },
 
   repo,
@@ -420,6 +440,17 @@ export const site = {
         { id: 'kofi', title: 'Card or PayPal', text: 'A one-time amount through Ko-fi.', href: '' }, // TODO: e.g. 'https://ko-fi.com/yourname'
       ],
     },
+    // The policies that apply to a payment, under the ways to give.
+    legal: {
+      text: 'Before you pay, see the',
+      links: [
+        { label: 'Terms', href: 'terms.html' },
+        { label: 'Refunds', href: 'refunds.html' },
+        { label: 'Shipping and delivery', href: 'delivery.html' },
+        { label: 'Privacy policy', href: 'privacy.html' },
+        { label: 'Contact us', href: 'contact.html' },
+      ],
+    },
     freeTitle: 'Ways to help that cost nothing',
     free: [
       { id: 'star', title: 'Star it on GitHub', text: 'Helps other people find it.', href: repo },
@@ -432,7 +463,7 @@ export const site = {
   // The privacy policy page (privacy.html). Keep it in step with what the app actually does.
   privacy: {
     title: 'Privacy policy',
-    updated: '25 October 2026',
+    updated: '26 October 2026',
     intro:
       'TheIsland runs on your PC. It has no account, no ads and no analytics, and Archway receives no data from the app. This page explains what it stores, what it connects to and why.',
     sections: [
@@ -474,6 +505,9 @@ export const site = {
         items: [
           'Installers come from GitHub Releases (or from the Microsoft Store, under Microsoft’s privacy statement, once it is listed there).',
           'Sponsorships are handled by GitHub Sponsors and Stripe. Archway only sees what GitHub shows a sponsored developer, such as your GitHub username.',
+          'One-time contributions by card, UPI, net banking, wallet or PayPal are processed by Razorpay (and by PayPal, if you pay with it), under their own privacy policies. They collect the payment details needed to process the payment and send you a receipt.',
+          'From such a payment Archway receives the amount, the date, the payment status and the contact details you enter on the payment page (such as your name, email address and phone number). Archway never sees your full card number, CVV, UPI PIN or bank login.',
+          'These records are kept only as long as Indian tax and accounting law requires, used only to handle that payment (receipts, refunds and questions about it) and never sold or used for marketing.',
         ],
       },
       {
@@ -485,10 +519,161 @@ export const site = {
       },
     ],
     links: [
+      { label: 'Contact us', href: 'contact.html' },
       { label: 'Open an issue', href: `${repo}/issues` },
       { label: 'Report a problem privately', href: `${repo}/security/advisories/new` },
       { label: 'GitHub privacy statement', href: 'https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement' },
       { label: 'Google privacy policy', href: 'https://policies.google.com/privacy' },
+      { label: 'Razorpay privacy policy', href: 'https://razorpay.com/privacy/' },
+    ],
+  },
+
+  // The terms page (terms.html). Payment providers ask for this, the refund, delivery and contact pages.
+  // These four are linked only from the legal pages and the Support page, never from Home, Features,
+  // Download or Help (the footer's Legal column has `pages`).
+  terms: {
+    title: 'Terms and conditions',
+    updated: '26 October 2026',
+    intro:
+      'These terms cover TheIsland, this website and the optional ways to support it. TheIsland is made by Archway, run by Raj Shah in India. By using the app or the site, you agree to them.',
+    sections: [
+      {
+        title: 'The app',
+        items: [
+          'TheIsland is free software under the MIT license. You may use, copy, change and share it as that license allows; the License page has the full text.',
+          'It is provided as is, without warranty of any kind. Archway is not liable for any loss or damage that comes from using it, as far as the law allows.',
+          'Features that connect to other services (Google Calendar, Claude Code, Microsoft Store, GitHub) are also subject to those services’ own terms.',
+        ],
+      },
+      {
+        title: 'Supporting TheIsland',
+        items: [
+          'Contributions are voluntary. They are not a purchase: every feature of TheIsland stays free, and paying unlocks nothing and buys no support contract or service.',
+          'You choose the amount. Payments are in Indian rupees, or in your own currency where the payment page offers it, in which case your bank or card provider sets the exchange rate and any fees it charges.',
+          'One-time payments are processed by Razorpay, and by PayPal if you pay with it. Monthly sponsorships go through GitHub Sponsors. Each applies its own terms to the payment.',
+          'Contributions are not charitable donations, and no tax deduction (such as under section 80G) can be claimed for them.',
+          'Refunds and cancellations are described on the Refunds page.',
+        ],
+      },
+      {
+        title: 'This website',
+        items: [
+          'The text and images on this site belong to Archway unless stated otherwise. The app’s source code is under the MIT license.',
+          'Please don’t misuse the site, for example by trying to break it or to make payments with a card that isn’t yours.',
+          'Links to other sites are there for convenience. Archway is not responsible for their content.',
+        ],
+      },
+      {
+        title: 'Law and changes',
+        items: [
+          'These terms are governed by the laws of India, and the courts of India have jurisdiction over any dispute about them.',
+          'If these terms change, this page will be updated and the date at the top will change. Payments already made stay under the terms that applied when they were made.',
+          'Questions about these terms? See the Contact page.',
+        ],
+      },
+    ],
+    links: [
+      { label: 'Refunds and cancellations', href: 'refunds.html' },
+      { label: 'Privacy policy', href: 'privacy.html' },
+      { label: 'License', href: 'license.html' },
+      { label: 'Contact us', href: 'contact.html' },
+    ],
+  },
+
+  // The refund and cancellation policy (refunds.html).
+  refunds: {
+    title: 'Refunds and cancellations',
+    updated: '26 October 2026',
+    intro:
+      'TheIsland is free, so nobody has to pay for anything. Contributions are voluntary gifts toward its development, which is why they are normally not refunded. Mistakes happen, though, and we will put them right.',
+    sections: [
+      {
+        title: 'When we refund',
+        items: [
+          'A payment made by mistake, such as a wrong amount or the same payment twice.',
+          'A payment you did not make or agree to, such as one made with your card without your permission.',
+          'A payment taken from your account that failed or did not complete. Razorpay usually returns these on its own within 5 to 7 business days; tell us if it doesn’t.',
+        ],
+      },
+      {
+        title: 'How to ask',
+        items: [
+          'Write to us within 7 days of the payment, using the email on the Contact page. Include the payment ID from your receipt (it starts with "pay_"), the date and the amount.',
+          'We reply within 3 business days. An approved refund is sent back to the card, account or app you paid from, never anywhere else.',
+          'Razorpay processes the refund, and it usually reaches you within 5 to 7 business days after approval, depending on your bank. International payments may take longer.',
+          'The full amount is refunded. If your bank charged a currency conversion fee, that fee is your bank’s and may not come back.',
+        ],
+      },
+      {
+        title: 'Cancellations',
+        items: [
+          'One-time contributions are not recurring, so there is nothing to cancel after paying.',
+          'A monthly sponsorship through GitHub Sponsors can be cancelled at any time in your GitHub account, under Settings > Billing and licensing. It stops before the next payment, and earlier payments are not refunded except as described above.',
+          'Since contributions buy nothing, no order or delivery needs cancelling.',
+        ],
+      },
+    ],
+    links: [
+      { label: 'Contact us', href: 'contact.html' },
+      { label: 'Terms and conditions', href: 'terms.html' },
+      { label: 'GitHub Sponsors: cancelling', href: 'https://docs.github.com/sponsors/sponsoring-open-source-contributors/managing-your-sponsorship' },
+    ],
+  },
+
+  // The shipping and delivery policy (delivery.html).
+  delivery: {
+    title: 'Shipping and delivery',
+    updated: '26 October 2026',
+    intro:
+      'TheIsland is software you download, and contributions to it are gifts that unlock nothing. Nothing physical is ever shipped.',
+    sections: [
+      {
+        title: 'The app',
+        items: [
+          'TheIsland is free. You can download it any time from the Download page (from GitHub Releases), and from the Microsoft Store once it is listed there.',
+          'The download starts right away in your browser. There is no shipping, no shipping charge and no delivery address needed.',
+        ],
+      },
+      {
+        title: 'Contributions',
+        items: [
+          'A contribution does not unlock or deliver anything, digital or physical. The app is the same whether you pay or not.',
+          'Right after a successful payment, Razorpay emails a receipt to the address you entered. If it hasn’t arrived within an hour, check your spam folder, then write to us with the payment details.',
+          'Payments are accepted from India and, where enabled, from other countries. There are no delivery restrictions, because nothing is delivered.',
+        ],
+      },
+    ],
+    links: [
+      { label: 'Download', href: 'download.html' },
+      { label: 'Refunds and cancellations', href: 'refunds.html' },
+      { label: 'Contact us', href: 'contact.html' },
+    ],
+  },
+
+  // The contact page (contact.html). Only the details filled in are shown.
+  contact: {
+    title: 'Contact us',
+    updated: '26 October 2026',
+    intro:
+      'Questions about TheIsland, a payment or these policies? Get in touch. We usually reply within 3 business days.',
+    operator: 'Archway (Raj Shah)',
+    email: 'shahrajshahraj6@gmail.com',
+    phone: '', // optional; left out on purpose
+    address: 'Ahmedabad, Gujarat\nIndia',
+    sections: [
+      {
+        title: 'Other ways to reach us',
+        items: [
+          'Bugs and feature ideas: open an issue on GitHub, so others can follow along.',
+          'Security or privacy problems: please report them privately on GitHub instead of in a public issue.',
+          'Payments and refunds: write to the email above with the payment ID from your receipt.',
+        ],
+      },
+    ],
+    links: [
+      { label: 'Open an issue', href: `${repo}/issues` },
+      { label: 'Report a problem privately', href: `${repo}/security/advisories/new` },
+      { label: 'Get Help', href: 'help.html' },
     ],
   },
 
@@ -563,6 +748,17 @@ SOFTWARE.`,
           { label: 'Privacy policy', href: 'privacy.html' },
           { label: 'Security', href: 'security.html' },
           { label: 'License', href: 'license.html' },
+        ],
+      },
+      {
+        title: 'Legal',
+        // Shown only on these pages.
+        pages: ['support', 'privacy', 'security', 'license', 'terms', 'refunds', 'delivery', 'contact'],
+        links: [
+          { label: 'Terms', href: 'terms.html' },
+          { label: 'Refunds', href: 'refunds.html' },
+          { label: 'Shipping and delivery', href: 'delivery.html' },
+          { label: 'Contact us', href: 'contact.html' },
         ],
       },
       {

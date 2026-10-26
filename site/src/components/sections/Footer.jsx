@@ -1,9 +1,11 @@
 import { site } from '../../content/site.js'
-import { pageHref } from '../../lib/pages.js'
+import { currentPage, pageHref } from '../../lib/pages.js'
 import { ArchwayMark, IslandMark } from '../ui/Marks.jsx'
 
 export default function Footer() {
   const { footer } = site
+  // A column with `pages` (the Legal one) only shows on those pages.
+  const columns = footer.columns.filter((column) => !column.pages || column.pages.includes(currentPage))
   const studio = (
     <span className="inline-flex items-center gap-1.5 font-medium text-fg">
       <ArchwayMark className="size-[0.95rem]" />
@@ -13,8 +15,10 @@ export default function Footer() {
   return (
     <footer className="px-5 pt-10 pb-12 sm:px-8">
       <div className="mx-auto max-w-6xl border-t border-line pt-12">
-        <div className="grid gap-10 md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]">
-          <div>
+        <div
+          className={`grid grid-cols-2 gap-10 ${columns.length > 3 ? 'md:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))]' : 'md:grid-cols-[minmax(0,2fr)_repeat(3,minmax(0,1fr))]'}`}
+        >
+          <div className="col-span-2 md:col-span-1">
             <a href={pageHref('index')} className="flex w-fit items-center gap-2.5 font-semibold tracking-[-0.02em]">
               <IslandMark className="size-6" />
               {site.name}
@@ -33,7 +37,7 @@ export default function Footer() {
               </span>
             </p>
           </div>
-          {footer.columns.map((column) => (
+          {columns.map((column) => (
             <nav key={column.title} aria-label={column.title}>
               <h2 className="text-eyebrow text-subtle">{column.title}</h2>
               <ul className="mt-4 space-y-2.5 text-sm">

@@ -10,6 +10,8 @@ import SupportPage from './pages/SupportPage.jsx'
 import Privacy from './pages/Privacy.jsx'
 import Security from './pages/Security.jsx'
 import License from './pages/License.jsx'
+import { Terms, Refunds, Delivery } from './pages/Legal.jsx'
+import Contact from './pages/Contact.jsx'
 import './index.css'
 
 // Each HTML file names its page in <body data-page>; this renders that page inside the shared layout.
@@ -22,6 +24,10 @@ const pages = {
   privacy: Privacy,
   security: Security,
   license: License,
+  terms: Terms,
+  refunds: Refunds,
+  delivery: Delivery,
+  contact: Contact,
 }
 
 const Page = pages[currentPage] || Home
