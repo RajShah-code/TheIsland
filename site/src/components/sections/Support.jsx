@@ -110,7 +110,7 @@ function OtherWays() {
                 <span className="mt-0.5 block text-sm text-muted">{option.text}</span>
               </span>
               <Button href={option.href} size="sm" variant="secondary" icon="external" target="_blank" rel="noreferrer" className="sm:ml-auto">
-                Donate
+                Pay
               </Button>
             </div>
           ),

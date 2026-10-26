@@ -433,11 +433,12 @@ export const site = {
     },
     // Ways to give without a GitHub account. Leave `href` (or `upi`) empty and the option stays hidden.
     other: {
-      title: 'No GitHub account? No problem.',
-      text: 'Give any amount with UPI, a card or PayPal. No sign-up needed.',
+      title: 'In India? Pay without GitHub.',
+      text: 'Give any amount with UPI, a card or net banking. No sign-up needed. From outside India, please use GitHub Sponsors for now.',
       options: [
         { id: 'upi', title: 'Pay with UPI', text: 'Google Pay, PhonePe, Paytm or any UPI app.', upi: '' }, // TODO: your UPI ID, e.g. 'name@okhdfcbank'
-        { id: 'kofi', title: 'Card or PayPal', text: 'A one-time amount through Ko-fi.', href: '' }, // TODO: e.g. 'https://ko-fi.com/yourname'
+        // Razorpay Payment Page: Indian payments only until international payments (or PayPal) are switched on.
+        { id: 'razorpay', title: 'UPI, card or net banking', text: 'A one-time amount you choose, through Razorpay. India only for now.', href: 'https://rzp.io/rzp/theisland' },
       ],
     },
     // The policies that apply to a payment, under the ways to give.
@@ -505,7 +506,7 @@ export const site = {
         items: [
           'Installers come from GitHub Releases (or from the Microsoft Store, under Microsoft’s privacy statement, once it is listed there).',
           'Sponsorships are handled by GitHub Sponsors and Stripe. Archway only sees what GitHub shows a sponsored developer, such as your GitHub username.',
-          'One-time contributions by card, UPI, net banking, wallet or PayPal are processed by Razorpay (and by PayPal, if you pay with it), under their own privacy policies. They collect the payment details needed to process the payment and send you a receipt.',
+          'One-time contributions by UPI, card, net banking or wallet are processed by Razorpay, under its own privacy policy. Razorpay collects the payment details needed to process the payment and send you a receipt.',
           'From such a payment Archway receives the amount, the date, the payment status and the contact details you enter on the payment page (such as your name, email address and phone number). Archway never sees your full card number, CVV, UPI PIN or bank login.',
           'These records are kept only as long as Indian tax and accounting law requires, used only to handle that payment (receipts, refunds and questions about it) and never sold or used for marketing.',
         ],
@@ -549,8 +550,8 @@ export const site = {
         title: 'Supporting TheIsland',
         items: [
           'Contributions are voluntary. They are not a purchase: every feature of TheIsland stays free, and paying unlocks nothing and buys no support contract or service.',
-          'You choose the amount. Payments are in Indian rupees, or in your own currency where the payment page offers it, in which case your bank or card provider sets the exchange rate and any fees it charges.',
-          'One-time payments are processed by Razorpay, and by PayPal if you pay with it. Monthly sponsorships go through GitHub Sponsors. Each applies its own terms to the payment.',
+          'You choose the amount, at least ₹50. One-time payments are in Indian rupees and, for now, accepted only from Indian cards, bank accounts and UPI. From outside India, please use GitHub Sponsors.',
+          'One-time payments are processed by Razorpay. Sponsorships go through GitHub Sponsors. Each applies its own terms to the payment.',
           'Contributions are not charitable donations, and no tax deduction (such as under section 80G) can be claimed for them.',
           'Refunds and cancellations are described on the Refunds page.',
         ],
@@ -600,8 +601,8 @@ export const site = {
         items: [
           'Write to us within 7 days of the payment, using the email on the Contact page. Include the payment ID from your receipt (it starts with "pay_"), the date and the amount.',
           'We reply within 3 business days. An approved refund is sent back to the card, account or app you paid from, never anywhere else.',
-          'Razorpay processes the refund, and it usually reaches you within 5 to 7 business days after approval, depending on your bank. International payments may take longer.',
-          'The full amount is refunded. If your bank charged a currency conversion fee, that fee is your bank’s and may not come back.',
+          'Razorpay processes the refund, and it usually reaches you within 5 to 7 business days after approval, depending on your bank.',
+          'The full amount you paid is refunded.',
         ],
       },
       {
@@ -639,7 +640,7 @@ export const site = {
         items: [
           'A contribution does not unlock or deliver anything, digital or physical. The app is the same whether you pay or not.',
           'Right after a successful payment, Razorpay emails a receipt to the address you entered. If it hasn’t arrived within an hour, check your spam folder, then write to us with the payment details.',
-          'Payments are accepted from India and, where enabled, from other countries. There are no delivery restrictions, because nothing is delivered.',
+          'One-time payments are accepted from India only for now; from elsewhere, GitHub Sponsors works. There are no delivery restrictions, because nothing is delivered.',
         ],
       },
     ],
