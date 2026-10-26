@@ -3,3 +3,5 @@ out/
 dist/
 resources/*.exe
 *.log
+# Private research (competitor analysis); kept out of the public repo
+competitor-profiles/
