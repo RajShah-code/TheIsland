@@ -58,6 +58,10 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
     and every 12 h (or on resume after that) it asks GitHub's latest-release API and reports a newer version.
     Downloads nothing; the tray ("Update available...") and Settings > About link to the site's Download page.
     `updates.check` turns it off. `ISLAND_UPDATE_URL` points it at a fake server for testing.
+  - `claude-hooks.js` the install/remove dialogs for the Claude Code hooks (what gets added, then a backup and
+    the write), shared by the tray, Settings > Claude Code and the one-time offer a few seconds after a start
+    where `%USERPROFILE%\.claude` exists and the hooks aren't installed (`claudeHooksOffered` in config.json;
+    asked once, whatever the answer). No installer step: the Store package can't run one.
   - `tray.js` Settings..., hide switch, approvals switch, hook install/remove, calendar URL, quit.
 - `src/shared/hooks-installer.mjs` safe installer used by both the tray and `scripts/hooks.mjs`.
 - `src/shared/settings-model.mjs` the settings model: defaults, `normalizeSettings` (clamps, drops unknown

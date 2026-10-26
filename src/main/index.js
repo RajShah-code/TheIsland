@@ -4,6 +4,7 @@ import path from 'node:path'
 import { app, globalShortcut, ipcMain, shell } from 'electron'
 import { bundledRelayPath, dataDir, installRelayFile, legacyDataDir } from '../shared/hooks-installer.mjs'
 import { createClaudeHub } from './claude'
+import { claudeHooksStatus, installClaudeHooks, offerClaudeHooks, removeClaudeHooks } from './claude-hooks'
 import { startCalendar } from './calendar'
 import { hasCalendarUrl, removeCalendarUrl, setCalendarFromClipboard, setCalendarUrl } from './calendar-url'
 import { getSecret, getSettings, updateSettings } from './config'
@@ -55,6 +56,8 @@ function useDataDir() {
 // Hides the whole island until pressed again (also in the tray menu).
 const HIDE_SHORTCUT = 'Control+Alt+I'
 const GREET_DELAY_MS = 1200
+// The one-time offer to connect Claude Code comes after the greeting has had its moment.
+const OFFER_DELAY_MS = 4000
 const GOODBYE_MS = 1800
 
 // Start with Windows, as a shortcut in the user's Startup folder. A Run registry entry (what Electron's
@@ -229,6 +232,7 @@ function start() {
       store: STORE,
       calendarConfigured: hasCalendarUrl(),
       google: { signedIn: isGoogleSignedIn(), clientId: googleClientId() || '' },
+      claudeHooks: claudeHooksStatus(),
       version: app.getVersion(),
       update: updates?.get() ?? null
     }
@@ -273,9 +277,10 @@ function start() {
 
   win = createIslandWindow()
   // Hello once the page is up (a moment later, so the island is on screen and listening).
-  win.webContents.once('did-finish-load', () =>
+  win.webContents.once('did-finish-load', () => {
     setTimeout(() => send('island:attention', { kind: 'greet', text: greetingText() }), GREET_DELAY_MS)
-  )
+    setTimeout(() => offerClaudeHooks().then((yes) => yes && settingsChanged()), OFFER_DELAY_MS)
+  })
   // Windows is shutting down, restarting or signing out: say goodbye while it closes apps.
   win.on('query-session-end', () => sayGoodbye())
   win.on('session-end', () => log('windows session ending'))
@@ -374,6 +379,14 @@ function start() {
   // Fixed pages only: the settings window names one, it never passes an address.
   ipcMain.on('settings:open-link', (e, name) => {
     if (settingsWin.isSender(e)) openLink(name)
+  })
+  // Claude Code hooks: the main process shows the change in a dialog on the settings window first.
+  ipcMain.handle('settings:claude-hooks', async (e, action) => {
+    if (!settingsWin.isSender(e)) return null
+    if (action === 'install') await installClaudeHooks({ parent: settingsWin.get() })
+    else if (action === 'remove') await removeClaudeHooks({ parent: settingsWin.get() })
+    settingsChanged()
+    return settingsView()
   })
   ipcMain.handle('settings:calendar-remove', (e) => {
     if (!settingsWin.isSender(e)) return null

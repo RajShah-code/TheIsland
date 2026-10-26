@@ -1,18 +1,11 @@
-// Tray menu: update notice, Settings window, hide switch, approvals switch, hook install/remove (with the diff shown
-// first), calendar URL, quit. Everything else lives in the settings window (settings-window.js).
+// Tray menu: update notice, Settings window, hide switch, approvals switch, hook install/remove
+// (claude-hooks.js, which shows the diff first), calendar URL, quit. Everything else lives in the
+// settings window (settings-window.js).
 import { app, dialog, Menu, nativeImage, Tray } from 'electron'
-import {
-  applyPlan,
-  bundledRelayPath,
-  installRelayFile,
-  isInstalled,
-  isUpToDate,
-  planInstall,
-  planUninstall
-} from '../shared/hooks-installer.mjs'
+import { isInstalled, isUpToDate } from '../shared/hooks-installer.mjs'
 import { hasCalendarUrl, removeCalendarUrl, setCalendarFromClipboard } from './calendar-url'
 import { getSettings, updateSettings } from './config'
-import { log } from './log'
+import { installClaudeHooks, removeClaudeHooks } from './claude-hooks'
 
 // A small white pill drawn in code, so there is no icon file to ship.
 function trayIcon() {
@@ -33,15 +26,6 @@ function trayIcon() {
   return nativeImage.createFromBitmap(buf, { width: s, height: s, scaleFactor: 2 })
 }
 
-function shortDiff(diff) {
-  const lines = diff.split('\n')
-  const keep = new Set()
-  lines.forEach((l, i) => {
-    if (!l.startsWith('  ')) for (let k = i - 1; k <= i + 1; k++) keep.add(k)
-  })
-  return lines.filter((_, i) => keep.has(i)).join('\n')
-}
-
 export function createTray({
   onConfigChanged,
   onCalendarChanged,
@@ -56,54 +40,15 @@ export function createTray({
   const tray = new Tray(trayIcon())
   tray.setToolTip('TheIsland')
 
+  // onConfigChanged refreshes this menu and the settings window, which shows the hooks too.
   async function installHooks() {
-    try {
-      const plan = planInstall()
-      if (!plan.changed) {
-        dialog.showMessageBox({ message: 'Claude Code hooks are already installed.' })
-        return
-      }
-      const { response } = await dialog.showMessageBox({
-        type: 'question',
-        buttons: ['Install', 'Cancel'],
-        defaultId: 1,
-        cancelId: 1,
-        message: 'Add TheIsland hooks to ' + plan.file + '?',
-        detail:
-          'A backup is saved next to the file first. Your other settings and hooks stay as they are.\n\n' +
-          shortDiff(plan.diff)
-      })
-      if (response !== 0) return
-      installRelayFile(bundledRelayPath(app.getAppPath()))
-      const r = applyPlan(plan)
-      log('hooks installed')
-      dialog.showMessageBox({ message: 'Hooks installed.', detail: 'Backup: ' + (r.backup || 'none (new file)') })
-    } catch (e) {
-      dialog.showErrorBox('TheIsland', 'Hooks not installed: ' + e.message)
-    }
-    refresh()
+    await installClaudeHooks()
+    onConfigChanged()
   }
 
   async function removeHooks() {
-    try {
-      const plan = planUninstall()
-      if (!plan.changed) return
-      const { response } = await dialog.showMessageBox({
-        type: 'question',
-        buttons: ['Remove', 'Cancel'],
-        defaultId: 1,
-        cancelId: 1,
-        message: 'Remove TheIsland hooks from ' + plan.file + '?',
-        detail: 'Only TheIsland entries are removed. A backup is saved first.'
-      })
-      if (response !== 0) return
-      const r = applyPlan(plan)
-      log('hooks removed')
-      dialog.showMessageBox({ message: 'Hooks removed.', detail: 'Backup: ' + r.backup })
-    } catch (e) {
-      dialog.showErrorBox('TheIsland', 'Hooks not removed: ' + e.message)
-    }
-    refresh()
+    await removeClaudeHooks()
+    onConfigChanged()
   }
 
   async function setCalendar() {

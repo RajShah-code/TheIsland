@@ -170,7 +170,7 @@ export default function Settings() {
               {section === 'pill' && <PillSection view={view} save={save} />}
               {section === 'home' && <HomeSection view={view} save={save} />}
               {section === 'system' && <SystemSection view={view} save={save} />}
-              {section === 'claude' && <ClaudeSection view={view} save={save} />}
+              {section === 'claude' && <ClaudeSection view={view} save={save} setView={setView} />}
               {section === 'island' && <IslandSection view={view} save={save} />}
               {section === 'calendar' && <CalendarSection view={view} setView={setView} />}
               {section === 'about' && <AboutSection view={view} save={save} />}
@@ -351,9 +351,10 @@ function TimeoutInput({ value, onCommit }) {
   )
 }
 
-function ClaudeSection({ view, save }) {
+function ClaudeSection({ view, save, setView }) {
   return (
     <>
+      <HooksCard status={view.claudeHooks} setView={setView} />
       <Card title="Approvals">
         <Row
           label="Answer approvals in the island"
@@ -378,8 +379,45 @@ function ClaudeSection({ view, save }) {
           <Toggle checked={view.claude.buddy} onChange={(on) => save({ claude: { buddy: on } })} label="Pixel buddy" />
         </Row>
       </Card>
-      <p className="px-1 text-[12px] text-white/40">Install or remove the Claude Code hooks from the tray menu.</p>
     </>
+  )
+}
+
+// Connecting Claude Code. The main process shows the exact change in a dialog before writing anything.
+function HooksCard({ status, setView }) {
+  const [busy, setBusy] = useState(false)
+  async function run(action) {
+    setBusy(true)
+    const v = await api.claudeHooks(action)
+    if (v) setView(v)
+    setBusy(false)
+  }
+  const help = status.installed
+    ? status.upToDate
+      ? 'Connected. Claude Code sends its sessions, permission prompts and questions to the island.'
+      : 'Connected by an older version, which misses some events. Update to get them all.'
+    : status.found
+      ? 'Not connected. Install the hooks to answer Claude Code prompts in the island and see your sessions live.'
+      : 'Claude Code was not found on this PC (no %USERPROFILE%\\.claude folder). Install the hooks once you have it.'
+  const button = (action, label) => (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() => run(action)}
+      className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12] disabled:opacity-50`}
+    >
+      {label}
+    </button>
+  )
+  return (
+    <Card title="Connection">
+      <Row label="Claude Code hooks" help={help}>
+        <span className="flex flex-wrap justify-end gap-2">
+          {status.installed && !status.upToDate && button('install', 'Update...')}
+          {status.installed ? button('remove', 'Remove...') : button('install', 'Install...')}
+        </span>
+      </Row>
+    </Card>
   )
 }
 

@@ -310,11 +310,11 @@ export const site = {
         id: 'claude-code',
         title: 'Connect Claude Code',
         steps: [
-          'Right-click the white pill in your tray and choose Install Claude Code hooks...',
-          'Read the change it shows for your Claude Code settings. A backup is saved before anything is written.',
-          'Press Install. The next time Claude Code needs permission or asks a question, the island opens.',
+          'If Claude Code is on your PC, TheIsland offers to connect it the first time it starts. Otherwise open Settings > Claude Code and press Install..., or choose Install Claude Code hooks... from the white pill in your tray.',
+          'Read what it adds to your Claude Code settings. A backup is saved before anything is written.',
+          'Press Install. Start a new Claude Code session, and the next time it needs permission or asks a question, the island opens.',
         ],
-        note: 'To disconnect, choose Remove Claude Code hooks... in the same menu. Only TheIsland’s own entries are removed.',
+        note: 'To disconnect, press Remove... in Settings > Claude Code or choose Remove Claude Code hooks... in the tray. Only TheIsland’s own entries are removed.',
       },
       {
         id: 'customize',

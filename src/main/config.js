@@ -14,7 +14,9 @@ const DEFAULTS = {
   calendarUrl: null,
   googleClientId: null,
   googleClientSecret: null,
-  googleRefreshToken: null
+  googleRefreshToken: null,
+  // The one-time offer to connect Claude Code has been shown (claude-hooks.js).
+  claudeHooksOffered: false
 }
 
 let cache = null

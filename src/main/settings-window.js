@@ -62,6 +62,8 @@ export function createSettingsWindowManager() {
       if (win && !win.isDestroyed()) win.webContents.send(channel, data)
     },
     isOpen: () => !!win && !win.isDestroyed(),
+    // The open window, to put a dialog on it.
+    get: () => (win && !win.isDestroyed() ? win : null),
     close: () => win && !win.isDestroyed() && win.destroy()
   }
 }
