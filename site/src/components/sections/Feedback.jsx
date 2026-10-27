@@ -6,7 +6,7 @@ import Section from '../ui/Section.jsx'
 
 const icons = [Bug, Lightbulb]
 
-// Bugs and ideas go to GitHub issues (the repo's own templates); security problems go to a private report.
+// Bugs and ideas go to the feedback form (feedback.html); security problems go to a private report.
 export default function Feedback() {
   const { feedback } = site
   return (
@@ -23,7 +23,7 @@ export default function Feedback() {
                 <h3 className="text-title mt-6">{item.title}</h3>
                 <p className="mt-3 max-w-[40ch] text-[0.9375rem] leading-relaxed text-pretty text-muted">{item.text}</p>
                 <div className="mt-8 pt-2 md:mt-auto">
-                  <Button href={item.href} variant={i === 0 ? 'primary' : 'secondary'} icon="external" target="_blank" rel="noreferrer">
+                  <Button href={item.href} variant={i === 0 ? 'primary' : 'secondary'} icon="right">
                     {item.cta}
                   </Button>
                 </div>

@@ -75,6 +75,11 @@ export const site = {
       title: 'Shipping and delivery · TheIsland',
       description: 'TheIsland is a free digital download. Nothing is shipped, and contributions unlock nothing.',
     },
+    feedback: {
+      file: 'feedback.html',
+      title: 'Send feedback · TheIsland',
+      description: 'Report a bug or suggest a feature for TheIsland. No account needed.',
+    },
     contact: {
       file: 'contact.html',
       title: 'Contact us · TheIsland',
@@ -402,18 +407,18 @@ export const site = {
   feedback: {
     eyebrow: 'Feedback',
     title: 'Found a bug? Have an idea?',
-    intro: 'TheIsland gets better from what people run into. Tell us on GitHub, where you can follow the fix too.',
+    intro: 'TheIsland gets better from what people run into. Send it from the form, no account needed, or open an issue on GitHub to follow the fix.',
     items: [
       {
         title: 'Report a bug',
         text: 'Something doesn’t work as it should. Tell us what happened and your Windows version.',
-        href: `${repo}/issues/new?template=bug_report.md`,
-        cta: 'Open a bug report',
+        href: 'feedback?kind=bug',
+        cta: 'Report a bug',
       },
       {
         title: 'Suggest a feature',
         text: 'A widget you want on the island, or something that would make it better.',
-        href: `${repo}/issues/new?template=feature_request.md`,
+        href: 'feedback?kind=idea',
         cta: 'Share an idea',
       },
     ],
@@ -462,8 +467,8 @@ export const site = {
     free: [
       { id: 'star', title: 'Star it on GitHub', text: 'Helps other people find it.', href: repo },
       { id: 'share', title: 'Tell a friend', text: 'Know someone who’d like a dynamic island on Windows? Send them this page.' },
-      { id: 'bug', title: 'Report a bug', text: 'Something off? Every report makes it better.', href: `${repo}/issues/new?template=bug_report.md` },
-      { id: 'idea', title: 'Suggest a widget', text: 'Tell us what you’d like on the island next.', href: `${repo}/issues/new?template=feature_request.md` },
+      { id: 'bug', title: 'Report a bug', text: 'Something off? Every report makes it better.', href: 'feedback?kind=bug' },
+      { id: 'idea', title: 'Suggest a widget', text: 'Tell us what you’d like on the island next.', href: 'feedback?kind=idea' },
     ],
   },
 
@@ -505,6 +510,7 @@ export const site = {
           'The site has no analytics, no tracking and no cookies. Its fonts are served from the site itself.',
           'It is hosted on GitHub Pages, and GitHub may keep standard server logs such as IP addresses (see GitHub’s privacy statement).',
           'The site asks GitHub for the latest release to show its version and the installer link, so your browser contacts GitHub when a page loads.',
+          'The feedback form sends what you type (kind, title, message, and your email if you give one) plus the app version, Windows build and whether it is the Store version, through Web3Forms to Archway’s inbox. It is used only to read and answer your feedback, and never sold or used for marketing.',
         ],
       },
       {
@@ -532,6 +538,7 @@ export const site = {
       { label: 'GitHub privacy statement', href: 'https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement' },
       { label: 'Google privacy policy', href: 'https://policies.google.com/privacy' },
       { label: 'Razorpay privacy policy', href: 'https://razorpay.com/privacy/' },
+      { label: 'Web3Forms privacy policy', href: 'https://web3forms.com/privacy' },
     ],
   },
 
@@ -657,6 +664,29 @@ export const site = {
     ],
   },
 
+  // The feedback form (feedback.html). The app's Settings > About links here with ?kind=bug|idea and its
+  // version (v), Windows build (os) and store=1 for the Microsoft Store build.
+  feedbackPage: {
+    eyebrow: 'Feedback',
+    title: 'Tell us what to fix or build next.',
+    intro: 'Report a bug or suggest a feature. No account needed. Every message is read.',
+    // Web3Forms access key (web3forms.com). It is public by design: it only lets a form email the owner.
+    // While it is empty the form opens an email to `email` instead.
+    accessKey: '', // TODO: create a key at web3forms.com for shahrajshahraj6@gmail.com
+    endpoint: 'https://api.web3forms.com/submit',
+    email: 'shahrajshahraj6@gmail.com',
+    kinds: [
+      { value: 'bug', label: 'Bug', placeholder: 'What happened, and what did you expect? Steps to make it happen again help a lot.' },
+      { value: 'idea', label: 'Idea', placeholder: 'What would you like the island to do, and when would you use it?' },
+      { value: 'other', label: 'Other', placeholder: 'What’s on your mind?' },
+    ],
+    note: 'We only use your email to reply. The message and the app version are sent through Web3Forms to our inbox.',
+    noteEmail: 'Opens your email app with the message and the app version filled in.',
+    github: { text: 'Prefer to follow the fix in public?', label: 'Open an issue on GitHub', href: `${repo}/issues/new/choose` },
+    sent: { title: 'Thanks, it’s on its way.', text: 'We read every message. If you left an email, we’ll reply there.' },
+    failed: 'It didn’t send. Check your connection and try again, or email us instead.',
+  },
+
   // The contact page (contact.html). Only the details filled in are shown.
   contact: {
     title: 'Contact us',
@@ -671,13 +701,14 @@ export const site = {
       {
         title: 'Other ways to reach us',
         items: [
-          'Bugs and feature ideas: open an issue on GitHub, so others can follow along.',
+          'Bugs and feature ideas: use the feedback form, or open an issue on GitHub so others can follow along.',
           'Security or privacy problems: please report them privately on GitHub instead of in a public issue.',
           'Payments and refunds: write to the email above with the payment ID from your receipt.',
         ],
       },
     ],
     links: [
+      { label: 'Send feedback', href: 'feedback' },
       { label: 'Open an issue', href: `${repo}/issues` },
       { label: 'Report a problem privately', href: `${repo}/security/advisories/new` },
       { label: 'Get Help', href: 'help' },
@@ -772,7 +803,7 @@ SOFTWARE.`,
         title: 'Open source',
         links: [
           { label: 'Source code', href: repo, external: true },
-          { label: 'Report a bug', href: `${repo}/issues/new?template=bug_report.md`, external: true },
+          { label: 'Send feedback', href: 'feedback' },
           { label: 'Become a Sponsor', href: sponsors, external: true },
         ],
       },
