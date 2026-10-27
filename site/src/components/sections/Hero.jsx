@@ -39,7 +39,7 @@ export default function Hero() {
   const { hero } = site
   const release = useLatestRelease()
   const headlineEnd = 0.2 + hero.tagline.split(' ').length * 0.06
-  const meta = [release.version && `Version ${release.version}`, release.sizeMB && `${release.sizeMB} MB`, 'Windows 11, 64-bit', 'Free and open source']
+  const meta = [release.version && `Version ${release.version}`, 'Windows 11, 64-bit', 'Free and open source']
 
   return (
     <section id="top" className="relative overflow-hidden px-5 pt-32 pb-24 sm:px-8 md:pt-40 md:pb-36">
@@ -61,8 +61,8 @@ export default function Hero() {
         </Reveal>
 
         <Reveal onMount delay={headlineEnd + 0.1} className="mt-11 flex flex-wrap gap-3">
-          <Button href={release.url} icon="download">
-            Download for Windows
+          <Button href={site.store} icon="external" target="_blank" rel="noreferrer">
+            Get it from Microsoft Store
           </Button>
           <Button href={hero.secondary.href} variant="secondary" icon="external" target="_blank" rel="noreferrer">
             {hero.secondary.label}

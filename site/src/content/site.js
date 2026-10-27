@@ -228,12 +228,17 @@ export const site = {
   download: {
     eyebrow: 'Download',
     title: 'Get TheIsland for Windows.',
-    intro: 'Free and open source. The installer sets everything up for you, and Node.js or other tools are not needed.',
+    intro: 'Free and open source. Get it from the Microsoft Store and it installs in a click and keeps itself up to date. Node.js or other tools are not needed.',
     requirements: ['Windows 11, 64-bit', 'About 370 MB of disk space', 'Claude Code only if you want its support (optional)'],
-    store: 'Also in the Microsoft Store, which installs it without a SmartScreen warning and keeps it up to date.',
+    store: 'Installs with no warnings, and the Store keeps it up to date.',
+    installer: {
+      title: 'Can’t use the Microsoft Store?',
+      text: 'On PCs where the Store is blocked, use the installer from GitHub instead. It tells you when a new version is out. Already installed it this way? Update with the installer too, so you don’t end up with two copies.',
+      button: 'Download the installer',
+    },
     smartscreen: {
       title: 'If Windows says it “protected your PC”',
-      text: 'The installer isn’t code-signed yet, so Windows SmartScreen may warn about it the first time. Click More info, then Run anyway. You can compare the file with the SHA-256 checksum below, and every line of the source is on GitHub.',
+      text: 'This only happens with the installer from GitHub, which isn’t code-signed yet. Click More info, then Run anyway. You can compare the file with its SHA-256 checksum, and every line of the source is on GitHub. The Microsoft Store version doesn’t show this warning.',
     },
     changelog: { eyebrow: 'What’s new', title: 'Release notes', empty: 'Release notes are loading from GitHub.' },
   },
@@ -244,7 +249,7 @@ export const site = {
     items: [
       {
         title: 'Install TheIsland',
-        text: 'Run the installer. The island appears at the top of your screen and a small white pill in your tray.',
+        text: 'Get it from the Microsoft Store. The island appears at the top of your screen and a small white pill in your tray.',
       },
       {
         title: 'Make it yours',
@@ -376,7 +381,7 @@ export const site = {
       },
       {
         q: 'Windows says it protected my PC. Is it safe?',
-        a: 'The installer isn’t code-signed yet, so SmartScreen warns about it. Click More info, then Run anyway. You can check the download against the SHA-256 on the release page, and the source is on GitHub.',
+        a: 'That only happens with the installer from GitHub, which isn’t code-signed yet. Click More info, then Run anyway. You can check the download against the SHA-256 on the release page, and the source is on GitHub. The Microsoft Store version installs without the warning.',
       },
       {
         q: 'Will it slow my PC down?',
@@ -499,7 +504,7 @@ export const site = {
         items: [
           'The site has no analytics, no tracking and no cookies. Its fonts are served from the site itself.',
           'It is hosted on GitHub Pages, and GitHub may keep standard server logs such as IP addresses (see GitHub’s privacy statement).',
-          'The Download button asks GitHub for the latest release, so your browser contacts GitHub when the page loads.',
+          'The site asks GitHub for the latest release to show its version and the installer link, so your browser contacts GitHub when a page loads.',
         ],
       },
       {
@@ -632,7 +637,7 @@ export const site = {
       {
         title: 'The app',
         items: [
-          'TheIsland is free. You can download it any time from the Download page (from GitHub Releases) or from the Microsoft Store.',
+          'TheIsland is free. You can get it any time from the Microsoft Store, or download the installer from GitHub Releases through the Download page.',
           'The download starts right away in your browser. There is no shipping, no shipping charge and no delivery address needed.',
         ],
       },

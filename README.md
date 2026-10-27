@@ -40,10 +40,11 @@ the open island, or the tray icon). More widgets are planned, such as weather, a
 
 ## Install
 
-The easiest way is the [Microsoft Store](https://apps.microsoft.com/detail/9PFH56G16HFB): no SmartScreen
-warning, and the Store keeps it up to date. Then continue from step 3 below.
+Get it from the [Microsoft Store](https://apps.microsoft.com/detail/9PFH56G16HFB). It installs with no
+warnings and the Store keeps it up to date. Then continue from step 3 below.
 
-Or install it from GitHub:
+On a PC where the Store is blocked, use the installer from GitHub instead (and keep updating that copy with
+the installer, so you don't end up with two):
 
 1. Download `TheIsland-Setup-<version>.exe` from the [latest release](../../releases/latest) and run it.
 2. The installer isn't code-signed yet, so Windows SmartScreen may say it "protected your PC". Click

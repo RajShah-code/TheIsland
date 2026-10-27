@@ -37,7 +37,7 @@ function DownloadCard() {
   const releases = useReleases()
   const newest = releases?.[0]
   const { download } = site
-  const meta = [latest.version && `Version ${latest.version}`, latest.sizeMB && `${latest.sizeMB} MB`, newest && formatDate(newest.date)]
+  const meta = [latest.version && `Version ${latest.version}`, newest && formatDate(newest.date)]
   return (
     <Reveal onMount delay={0.15} className="bezel mt-12 md:mt-16">
       <div className="bezel-core grid gap-10 p-7 md:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] md:p-10">
@@ -48,14 +48,8 @@ function DownloadCard() {
           <h2 className="text-title mt-6">TheIsland for Windows 11</h2>
           <p className="mt-2 font-mono text-xs text-subtle">{meta.filter(Boolean).join('  ·  ') || 'Latest version'}</p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button href={latest.url} icon="download">
-              Download for Windows
-            </Button>
-            <Button href={site.store} variant="secondary" icon="external" target="_blank" rel="noreferrer">
+            <Button href={site.store} icon="external" target="_blank" rel="noreferrer">
               Get it from Microsoft Store
-            </Button>
-            <Button href={site.releases} variant="secondary" icon="external" target="_blank" rel="noreferrer">
-              All files on GitHub
             </Button>
           </div>
           <p className="mt-5 text-sm text-subtle">{download.store}</p>
@@ -76,23 +70,38 @@ function DownloadCard() {
   )
 }
 
-// What to expect from SmartScreen, and how to check the file is the real one.
-function Verify() {
+// The GitHub installer for PCs without the Store: the download, what to expect from SmartScreen, and how
+// to check the file is the real one.
+function Installer() {
+  const latest = useLatestRelease()
   const releases = useReleases()
   const newest = releases?.[0]
-  const { smartscreen } = site.download
+  const { installer, smartscreen } = site.download
   const file = newest ? `TheIsland-Setup-${newest.version}.exe` : 'TheIsland-Setup-<version>.exe'
   const command = `Get-FileHash "$env:USERPROFILE\\Downloads\\${file}"`
   return (
-    <Section className="pt-0 md:pt-0">
+    <Section id="installer" className="pt-0 md:pt-0">
       <Reveal className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-[2rem] p-7 ring-1 ring-inset ring-line md:col-span-2 md:p-8">
+          <h2 className="text-[1.25rem] font-semibold tracking-[-0.025em]">{installer.title}</h2>
+          <p className="mt-3 max-w-[60ch] text-[0.9375rem] leading-relaxed text-pretty text-muted">{installer.text}</p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button href={latest.url} variant="secondary" icon="download">
+              {installer.button}
+              {latest.sizeMB ? ` (${latest.sizeMB} MB)` : ''}
+            </Button>
+            <Button href={site.releases} variant="secondary" icon="external" target="_blank" rel="noreferrer">
+              All files on GitHub
+            </Button>
+          </div>
+        </div>
         <div className="rounded-[2rem] p-7 ring-1 ring-inset ring-line md:p-8">
           <ShieldWarning size={24} weight="light" className="text-muted" />
           <h2 className="mt-5 text-[1.25rem] font-semibold tracking-[-0.025em]">{smartscreen.title}</h2>
           <p className="mt-3 text-[0.9375rem] leading-relaxed text-pretty text-muted">{smartscreen.text}</p>
         </div>
         <div className="rounded-[2rem] p-7 ring-1 ring-inset ring-line md:p-8">
-          <h2 className="text-[1.25rem] font-semibold tracking-[-0.025em]">Check the download (optional)</h2>
+          <h2 className="text-[1.25rem] font-semibold tracking-[-0.025em]">Check the installer (optional)</h2>
           <p className="mt-3 text-[0.9375rem] leading-relaxed text-muted">
             In PowerShell, this prints the file’s SHA-256. It should match the one below.
           </p>
@@ -157,7 +166,7 @@ export default function Download() {
         <DownloadCard />
       </PageHeader>
       <Steps />
-      <Verify />
+      <Installer />
       <Changelog />
     </>
   )

@@ -1,12 +1,10 @@
 import { site } from '../../content/site.js'
-import { useLatestRelease } from '../../lib/release.js'
 import { pageHref } from '../../lib/pages.js'
 import Button from '../ui/Button.jsx'
 import Reveal from '../ui/Reveal.jsx'
 
-// A closing call to action: download, or see how to support it.
+// A closing call to action: get it from the Store, or see how to support it.
 export default function CtaBand() {
-  const release = useLatestRelease()
   const { cta } = site.home
   return (
     <section className="px-5 py-24 sm:px-8 md:py-32">
@@ -19,8 +17,8 @@ export default function CtaBand() {
           <h2 className="text-headline relative mx-auto max-w-[18ch] text-balance">{cta.title}</h2>
           <p className="text-lead relative mx-auto mt-5 max-w-[40ch] text-muted">{cta.text}</p>
           <div className="relative mt-10 flex flex-wrap justify-center gap-3">
-            <Button href={release.url} icon="download">
-              Download for Windows
+            <Button href={site.store} icon="external" target="_blank" rel="noreferrer">
+              Get it from Microsoft Store
             </Button>
             <Button href={pageHref('support')} variant="secondary" icon="right">
               Support us
