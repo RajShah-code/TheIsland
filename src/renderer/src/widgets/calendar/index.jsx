@@ -27,7 +27,7 @@ function useWeekEvents(calendar, start) {
     return () => {
       live = false
     }
-  }, [start, inWindow, calendar.configured, calendar.updatedAt, calendar.source])
+  }, [start, inWindow, calendar.configured, calendar.updatedAt, calendar.accounts?.join()])
   if (inWindow) return { events: calendar.events, loading: false }
   if (loaded.start !== start) return { events: [], loading: !loaded.failed }
   return { events: loaded.events, loading: false }
@@ -145,7 +145,7 @@ function Panel() {
       <div className="mt-2 min-h-[44px] space-y-1">
         {!calendar.configured ? (
           <p className="text-[11px] leading-snug text-white/45">
-            No calendar yet. Sign in with Google or add your iCal address in Settings.
+            No calendar yet. Add Google, Outlook, iCloud, Notion or an iCal link in Settings.
           </p>
         ) : (!calendar.updatedAt && calendar.events.length === 0) || loading ? (
           <p className="pt-1 text-center text-xs text-white/40">
@@ -158,7 +158,7 @@ function Panel() {
         ) : (
           list.slice(0, 3).map((e) => (
             <div key={e.id} className="flex items-center gap-2">
-              <span className="h-3.5 w-0.5 shrink-0 rounded-full bg-accent" />
+              <span className="h-3.5 w-0.5 shrink-0 rounded-full bg-accent" style={e.color ? { backgroundColor: e.color } : undefined} />
               <span className="min-w-0 flex-1 truncate text-xs">{e.title}</span>
               <span className="shrink-0 text-[11px] text-white/45 tabular-nums">
                 {e.allDay ? 'All day' : selected === today && e.start <= now ? 'Now' : formatTime(e.start)}

@@ -109,7 +109,7 @@ export const site = {
           id: 'everyday',
           title: 'For every day',
           text: 'What’s playing, what’s next on your calendar and quick system controls, without opening a window.',
-          points: ['Music from any player', 'Your Google Calendar week', 'Volume, brightness, Wi-Fi and more', 'Hides during fullscreen'],
+          points: ['Music from any player', 'Google, Outlook and iCloud calendars', 'Volume, brightness, Wi-Fi and more', 'Hides during fullscreen'],
           link: { label: 'See every feature', href: 'features' },
         },
         {
@@ -184,7 +184,7 @@ export const site = {
       {
         id: 'calendar',
         title: 'Calendar',
-        text: 'Your week from Google Calendar, Monday to Sunday, with each day’s events one hover away.',
+        text: 'Your week from Google, Outlook, iCloud, Notion or any iCal link, Monday to Sunday, each calendar in its own colour.',
       },
       {
         id: 'system',
@@ -483,7 +483,7 @@ export const site = {
         title: 'What stays on your computer',
         items: [
           'Your settings are kept in %USERPROFILE%\\.theisland on your PC.',
-          'Your calendar address and your Google sign-in are encrypted with Windows’ own data protection (DPAPI) and never shown to anyone.',
+          'Your calendar sign-ins, passwords, tokens and addresses are encrypted with Windows’ own data protection (DPAPI) and never shown to anyone.',
           'A small log file (at most 256 KB) helps with troubleshooting. It never contains prompt text, commands, calendar events or web addresses.',
           'Music, system information (CPU, memory, battery, volume and so on) and the clock are read from Windows on your PC and are not sent anywhere.',
         ],
@@ -491,7 +491,8 @@ export const site = {
       {
         title: 'What TheIsland connects to',
         items: [
-          'Only your calendar, and only if you set one up. With an iCal address, TheIsland downloads that address. With Google sign-in, it talks to Google’s sign-in and Calendar services with read-only access to your calendars. Google’s privacy policy applies to that connection.',
+          'Only the calendars you add, and only to read their events. Google: Google’s sign-in and Calendar API, read-only (calendar.readonly). Outlook: Microsoft’s sign-in and Microsoft Graph, read-only (Calendars.Read). iCloud or another CalDAV server: that server, with the app-specific password you enter. Notion: the Notion API, with the integration you made, for the one database you chose. iCal links: that address. Each service’s own privacy policy applies to its connection. Events are kept in memory on your PC and never sent anywhere else.',
+          'TheIsland’s use of information received from Google APIs adheres to the Google API Services User Data Policy, including the Limited Use requirements. Google data is used only to show your events in the island, never transferred, sold, used for ads or read by people.',
           'Updates, in the version from GitHub: about twice a day TheIsland asks GitHub which release is the newest, and tells you when there is a newer one. It sends nothing about you or your PC beyond what any web request carries (GitHub sees your IP address), and it downloads nothing on its own. You can turn this off in Settings > About. The Microsoft Store version leaves updates to the Store.',
           'Nothing else. TheIsland does not send usage statistics and does not contact Archway.',
         ],
@@ -537,6 +538,8 @@ export const site = {
       { label: 'Report a problem privately', href: `${repo}/security/advisories/new` },
       { label: 'GitHub privacy statement', href: 'https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement' },
       { label: 'Google privacy policy', href: 'https://policies.google.com/privacy' },
+      { label: 'Microsoft privacy statement', href: 'https://privacy.microsoft.com/privacystatement' },
+      { label: 'Notion privacy policy', href: 'https://www.notion.so/notion/Privacy-Policy-3468d120cf614d4c9014c09f6adc9091' },
       { label: 'Razorpay privacy policy', href: 'https://razorpay.com/privacy/' },
       { label: 'Web3Forms privacy policy', href: 'https://web3forms.com/privacy' },
     ],

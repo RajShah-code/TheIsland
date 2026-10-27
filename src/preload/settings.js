@@ -5,11 +5,10 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('settingsApi', {
   get: () => ipcRenderer.invoke('settings:get'),
   set: (patch) => ipcRenderer.invoke('settings:set', patch),
-  setCalendar: (url) => ipcRenderer.invoke('settings:calendar-set', url),
-  removeCalendar: () => ipcRenderer.invoke('settings:calendar-remove'),
-  googleSignIn: (creds) => ipcRenderer.invoke('settings:google-sign-in', creds),
-  googleSignOut: () => ipcRenderer.invoke('settings:google-sign-out'),
-  openGoogleConsole: () => ipcRenderer.send('settings:open-google-console'),
+  calendarAdd: (kind, payload) => ipcRenderer.invoke('settings:calendar-add', kind, payload),
+  calendarUpdate: (id, patch) => ipcRenderer.invoke('settings:calendar-update', id, patch),
+  calendarRemove: (id) => ipcRenderer.invoke('settings:calendar-remove', id),
+  openCalendarHelp: (name) => ipcRenderer.send('settings:open-calendar-help', name),
   openLink: (name) => ipcRenderer.send('settings:open-link', name),
   claudeHooks: (action) => ipcRenderer.invoke('settings:claude-hooks', action),
   onChange: (cb) => {

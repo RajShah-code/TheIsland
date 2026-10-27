@@ -42,18 +42,26 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
     requests with an Origin header. Only `POST /event`. Approvals are answered over IPC, never HTTP.
   - `claude.js` sessions and pending approvals from hook events (memory only).
   - `helper.js` runs `resources/island-helper.exe` (music events + fullscreen on/off) and reads its JSON lines.
-  - `calendar.js` the calendar from one of two sources: a Google sign-in (`google-calendar.js`, preferred when
-    set, every 3 min) or the ICS URL (every 15 min, parsed with `ical.js`). Also refreshes when the island opens
-    (`touch()` on `island:interactive`; 15 s / 2 min staleness), on resume and every minute after a failure.
-    Pushes this week plus the next two (`from`, `to`, `events`); other weeks come from `week(start)` over
-    `island:calendar-week`. Weeks run Monday to Sunday (`src/shared/weeks.mjs`).
-  - `google-calendar.js` Google Calendar API with plain fetch: OAuth installed-app flow (loopback on 127.0.0.1,
-    PKCE) with the user's own Desktop client ID/secret, scope `calendar.readonly`. Client secret and refresh
-    token encrypted in config; reads the calendars ticked in Google Calendar.
-  - `config.js` settings; `getSettings()` / `updateSettings(patch)` validate through the shared model. The
-    calendar URL is encrypted with `safeStorage` (DPAPI) and never sent to a renderer.
-  - `calendar-url.js` set the calendar from a pasted address or the clipboard / remove it (tray and settings window).
-    The settings window sends the address in; it is never sent back out.
+  - `calendar.js` merges the events of every enabled calendar account, each fetched on its own
+    (`Promise.allSettled`): a failing account keeps its last events and gets its own error (`errors[id]`).
+    Refresh interval is the fastest any account wants; also refreshes when the island opens (`touch()`), on
+    resume and every minute after a failure. Pushes this week plus the next two (`from`, `to`, `events`, each
+    event tagged `source` and `color`); other weeks come from `week(start)` over `island:calendar-week`. Weeks
+    run Monday to Sunday (`src/shared/weeks.mjs`).
+  - `calendars/` one module per provider, each `connect(payload)` -> `{ label, meta, secrets }`,
+    `events(ctx, from, to, fresh)`, `disconnect(ctx)`, `REFRESH_MS`, `STALE_MS`:
+    `google.js` (Calendar API, built-in OAuth client from `MAIN_VITE_GOOGLE_CLIENT_ID/_SECRET` at build time,
+    or the user's own client), `microsoft.js` (Graph `calendarView`, public client `MAIN_VITE_MS_CLIENT_ID`,
+    rotating refresh tokens), `caldav.js` (iCloud or any CalDAV server, app-specific password, tiny regex XML
+    reader), `ics.js` (iCal links; its `parse()` also serves CalDAV), `notion.js` (internal integration token,
+    one database + date property). `oauth.js` is the shared loopback + PKCE flow. `accounts.js` stores
+    `calendarAccounts` (non-secret) in config.json and one DPAPI-encrypted JSON per account
+    (`calendarSecret:<id>`); `migrateCalendarAccounts()` turns the old single Google sign-in / ICS URL into
+    accounts on first start. Builds without the OAuth client IDs offer only what works (`view.calendar.builtIn`).
+  - `config.js` settings; `getSettings()` / `updateSettings(patch)` validate through the shared model. Calendar
+    secrets are encrypted with `safeStorage` (DPAPI) and never sent to a renderer.
+  - `calendar-url.js` the tray's "Add calendar from copied iCal address". Settings adds accounts over
+    `settings:calendar-add` (secrets go in, never back out), `settings:calendar-update`, `settings:calendar-remove`.
   - `updates.js` the update notice, GitHub installer build only (not the Store build): a minute after start
     and every 12 h (or on resume after that) it asks GitHub's latest-release API and reports a newer version.
     Downloads nothing; the tray ("Update available...") and Settings > About link to the site's Download page.

@@ -29,6 +29,12 @@ jobs:
           fi
       - run: npm test
       - run: npm run dist
+        # TheIsland's own OAuth clients for one-click calendar sign-in (src/main/calendars). Without them the
+        # build still works and offers only "use my own Google client" and iCal links for Outlook.
+        env:
+          MAIN_VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          MAIN_VITE_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          MAIN_VITE_MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
       - name: Create the draft release
         shell: bash
         env:

@@ -1,14 +1,25 @@
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { app, globalShortcut, ipcMain, shell } from 'electron'
 import { bundledRelayPath, dataDir, installRelayFile, legacyDataDir } from '../shared/hooks-installer.mjs'
 import { createClaudeHub } from './claude'
 import { claudeHooksStatus, installClaudeHooks, offerClaudeHooks, removeClaudeHooks } from './claude-hooks'
 import { startCalendar } from './calendar'
-import { hasCalendarUrl, removeCalendarUrl, setCalendarFromClipboard, setCalendarUrl } from './calendar-url'
-import { getSecret, getSettings, updateSettings } from './config'
-import { googleClientId, isGoogleSignedIn, signInGoogle, signOutGoogle } from './google-calendar'
+import { addCalendarFromClipboard } from './calendar-url'
+import { getSettings, updateSettings } from './config'
+import {
+  accountsView,
+  addAccount,
+  KINDS,
+  listAccounts,
+  migrateCalendarAccounts,
+  removeAccount,
+  updateAccount
+} from './calendars/accounts'
+import * as googleCalendar from './calendars/google'
+import * as microsoftCalendar from './calendars/microsoft'
 import { goodbyeText, greetingText } from './greeting'
 import { log } from './log'
 import { startHelper } from './helper'
@@ -136,10 +147,22 @@ const SETTINGS_LINKS = {
   privacy: WEBSITE + 'privacy',
   license: WEBSITE + 'license',
   help: WEBSITE + 'help',
+  feedback: feedbackUrl('bug'),
+  feedbackBug: feedbackUrl('bug'),
+  feedbackIdea: feedbackUrl('idea'),
   startup: 'ms-settings:startupapps'
 }
 
+// The site's feedback form, with the kind picked and the version, Windows build and Store flag filled in.
+function feedbackUrl(kind) {
+  const q = new URLSearchParams({ kind, v: app.getVersion(), os: os.release() })
+  if (STORE) q.set('store', '1')
+  return `${WEBSITE}feedback?${q}`
+}
+
 function openLink(name) {
+  // The data folder, so a bug report can attach the log. Nothing is uploaded.
+  if (name === 'logs') return void shell.openPath(dataDir()).then((err) => err && log('could not open logs', err))
   if (typeof name !== 'string' || !Object.hasOwn(SETTINGS_LINKS, name)) return
   shell.openExternal(SETTINGS_LINKS[name]).catch((e) => log('could not open', name, e.message))
 }
@@ -213,16 +236,17 @@ function start() {
     onSystem: (s) => send('island:system', s)
   })
   // A Google sign-in wins over the iCal address when both are set.
+  migrateCalendarAccounts()
   const calendar = startCalendar({
-    getSource: () => {
-      if (isGoogleSignedIn()) return { kind: 'google' }
-      const url = getSecret('calendarUrl')
-      return url ? { kind: 'ics', url } : null
-    },
-    onChange: (c) => send('island:calendar', c)
+    getAccounts: () => listAccounts().filter((a) => a.enabled),
+    onChange: (c) => {
+      send('island:calendar', c)
+      // The settings window shows each account's own error.
+      if (settingsWin.isOpen()) settingsWin.send('settings:changed', settingsView())
+    }
   })
   // The island gets the validated settings (no secrets). The settings window also gets a few facts it
-  // shows: the real login item state, whether a calendar is set (never its address) and the version.
+  // shows: the real login item state, the calendar accounts (never their tokens or addresses) and the version.
   const settings = () => getSettings()
   const settingsView = () => {
     const s = getSettings()
@@ -230,8 +254,11 @@ function start() {
       ...s,
       island: { ...s.island, startWithWindows: startsWithWindows() },
       store: STORE,
-      calendarConfigured: hasCalendarUrl(),
-      google: { signedIn: isGoogleSignedIn(), clientId: googleClientId() || '' },
+      calendar: {
+        accounts: accountsView(calendar.get().errors),
+        // Builds without the owner's OAuth client IDs (a fork, a local build) offer only what works.
+        builtIn: { google: googleCalendar.hasBuiltInClient(), microsoft: microsoftCalendar.hasBuiltInClient() }
+      },
       claudeHooks: claudeHooksStatus(),
       version: app.getVersion(),
       update: updates?.get() ?? null
@@ -266,6 +293,7 @@ function start() {
     isHidden: () => hidden,
     getUpdate: () => updates?.get() ?? null,
     onOpenDownload: () => openLink('download'),
+    onOpenFeedback: () => openLink('feedback'),
     onToggleHidden: () => setHidden(!hidden),
     onQuit: () => {
       // Quit from the tray: show the goodbye for a moment first.
@@ -355,26 +383,38 @@ function start() {
     return settingsView()
   })
   // With an address typed or pasted into the settings window, or without one to read the clipboard.
-  ipcMain.handle('settings:calendar-set', async (e, url) => {
-    if (!settingsWin.isSender(e)) return null
-    const r = typeof url === 'string' ? setCalendarUrl(url) : await setCalendarFromClipboard()
-    if (r.ok) calendarChanged()
-    return { ok: r.ok, error: r.error || null, view: settingsView() }
+  // Calendar accounts. Secrets come in with an add and never go back out.
+  ipcMain.handle('settings:calendar-add', async (e, kind, payload) => {
+    if (!settingsWin.isSender(e) || !KINDS.includes(kind) || (payload != null && !isPlainObject(payload))) return null
+    try {
+      await addAccount(kind, payload)
+    } catch (err) {
+      if (!err.user) log('calendar add failed:', kind, err.message)
+      return { ok: false, error: err.user ? err.message : 'Something went wrong: ' + err.message, view: settingsView() }
+    }
+    calendarChanged()
+    return { ok: true, error: null, view: settingsView() }
   })
-  ipcMain.handle('settings:google-sign-in', async (e, creds) => {
-    if (!settingsWin.isSender(e) || !isPlainObject(creds)) return null
-    const r = await signInGoogle({ clientId: creds.clientId, clientSecret: creds.clientSecret })
-    if (r.ok) calendarChanged()
-    return { ok: r.ok, error: r.error || null, view: settingsView() }
-  })
-  ipcMain.handle('settings:google-sign-out', async (e) => {
-    if (!settingsWin.isSender(e)) return null
-    await signOutGoogle()
+  ipcMain.handle('settings:calendar-update', (e, id, patch) => {
+    if (!settingsWin.isSender(e) || typeof id !== 'string' || !isPlainObject(patch)) return null
+    updateAccount(id, patch)
     calendarChanged()
     return settingsView()
   })
-  ipcMain.on('settings:open-google-console', (e) => {
-    if (settingsWin.isSender(e)) shell.openExternal('https://console.cloud.google.com/apis/library/calendar-json.googleapis.com')
+  ipcMain.handle('settings:calendar-remove', async (e, id) => {
+    if (!settingsWin.isSender(e) || typeof id !== 'string') return null
+    await removeAccount(id)
+    calendarChanged()
+    return settingsView()
+  })
+  // Setup pages for the calendar forms, by name only.
+  ipcMain.on('settings:open-calendar-help', (e, name) => {
+    const pages = {
+      googleConsole: 'https://console.cloud.google.com/apis/library/calendar-json.googleapis.com',
+      appleAppPasswords: 'https://account.apple.com/account/manage/section/security',
+      notionIntegrations: 'https://www.notion.so/profile/integrations'
+    }
+    if (settingsWin.isSender(e) && Object.hasOwn(pages, name)) shell.openExternal(pages[name])
   })
   // Fixed pages only: the settings window names one, it never passes an address.
   ipcMain.on('settings:open-link', (e, name) => {
@@ -386,12 +426,6 @@ function start() {
     if (action === 'install') await installClaudeHooks({ parent: settingsWin.get() })
     else if (action === 'remove') await removeClaudeHooks({ parent: settingsWin.get() })
     settingsChanged()
-    return settingsView()
-  })
-  ipcMain.handle('settings:calendar-remove', (e) => {
-    if (!settingsWin.isSender(e)) return null
-    removeCalendarUrl()
-    calendarChanged()
     return settingsView()
   })
 

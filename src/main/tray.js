@@ -1,9 +1,9 @@
 // Tray menu: update notice, Settings window, hide switch, approvals switch, hook install/remove
-// (claude-hooks.js, which shows the diff first), calendar URL, quit. Everything else lives in the
+// (claude-hooks.js, which shows the diff first), add an iCal calendar, feedback, quit. Everything else lives in the
 // settings window (settings-window.js).
 import { app, dialog, Menu, nativeImage, Tray } from 'electron'
 import { isInstalled, isUpToDate } from '../shared/hooks-installer.mjs'
-import { hasCalendarUrl, removeCalendarUrl, setCalendarFromClipboard } from './calendar-url'
+import { addCalendarFromClipboard } from './calendar-url'
 import { getSettings, updateSettings } from './config'
 import { installClaudeHooks, removeClaudeHooks } from './claude-hooks'
 
@@ -33,6 +33,7 @@ export function createTray({
   isHidden,
   getUpdate,
   onOpenDownload,
+  onOpenFeedback,
   onToggleHidden,
   onQuit,
   hideShortcut
@@ -51,8 +52,8 @@ export function createTray({
     onConfigChanged()
   }
 
-  async function setCalendar() {
-    const r = await setCalendarFromClipboard()
+  async function addCalendar() {
+    const r = await addCalendarFromClipboard()
     if (!r.ok) return dialog.showErrorBox('TheIsland', r.error)
     onCalendarChanged()
   }
@@ -92,16 +93,10 @@ export function createTray({
           ? { label: 'Remove Claude Code hooks...', click: removeHooks }
           : { label: 'Install Claude Code hooks...', click: installHooks },
         { type: 'separator' },
-        { label: 'Set calendar from copied iCal address', click: setCalendar },
-        {
-          label: 'Remove calendar',
-          enabled: hasCalendarUrl(),
-          click: () => {
-            removeCalendarUrl()
-            onCalendarChanged()
-          }
-        },
+        // Other calendars and removing one are in Settings > Calendar.
+        { label: 'Add calendar from copied iCal address', click: addCalendar },
         { type: 'separator' },
+        { label: 'Send feedback...', click: onOpenFeedback },
         { label: 'Quit TheIsland', click: () => (onQuit ? onQuit() : app.quit()) }
       ])
     )

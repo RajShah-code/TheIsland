@@ -51,6 +51,9 @@ export const isSystemControl = (it) => it.kind !== 'meter'
 export const CONTROL_STYLES = ['both', 'icon', 'label']
 export const SYSTEM_IDS = SYSTEM_ITEMS.map((it) => it.id)
 
+// Calendar account colours (event bars in the widget), handed out in turn (src/main/calendars/accounts.js).
+export const CALENDAR_COLORS = ['#3b9cff', '#34d399', '#f59e0b', '#f472b6', '#a78bfa', '#22d3ee', '#f87171', '#a3e635']
+
 export const PILL_LEFT = ['time', 'date', 'none']
 export const PILL_RIGHT = ['none', 'time', 'date']
 // The relay gives up after 290 s and Claude Code kills the hook at 300 s (see hook/TheIslandRelay.cs),

@@ -3,6 +3,7 @@
 // process validates everything; this page only shows what it gets back.
 import { useEffect, useRef, useState } from 'react'
 import {
+  CALENDAR_COLORS,
   GHOST_MAX,
   GHOST_MIN,
   SYSTEM_ITEMS,
@@ -23,7 +24,7 @@ const SECTIONS = [
   { id: 'system', label: 'System tab', title: 'System tab', help: 'Which meters and controls the System tab shows, and in what order.' },
   { id: 'claude', label: 'Claude Code', title: 'Claude Code', help: 'Session status and permission prompts from Claude Code.' },
   { id: 'island', label: 'Island', title: 'Island', help: 'How the island behaves on your desktop.' },
-  { id: 'calendar', label: 'Calendar', title: 'Calendar', help: 'Your Google Calendar in the island, through a Google sign-in or its private iCal address.' },
+  { id: 'calendar', label: 'Calendar', title: 'Calendar', help: 'Google, Outlook, iCloud, Notion and iCal calendars in the island.' },
   { id: 'about', label: 'About', title: 'About', help: 'Version, updates and footprint.' }
 ]
 
@@ -479,98 +480,95 @@ function IslandSection({ view, save }) {
 const btn =
   'rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-35'
 
+const KIND_NAMES = { google: 'Google', microsoft: 'Outlook', caldav: 'CalDAV', ics: 'iCal link', notion: 'Notion' }
+const ADD_KINDS = [
+  { value: 'google', label: 'Google' },
+  { value: 'microsoft', label: 'Outlook' },
+  { value: 'caldav', label: 'iCloud' },
+  { value: 'ics', label: 'iCal link' },
+  { value: 'notion', label: 'Notion' }
+]
+
+// Calendar accounts: any number of Google, Outlook, iCloud (CalDAV), iCal links and Notion databases,
+// merged in the widget with a colour each. Passwords and tokens go to the main process with the add and
+// are never sent back.
 function CalendarSection({ view, setView }) {
-  const [msg, setMsg] = useState(null)
+  const { accounts, builtIn } = view.calendar
+  const [kind, setKind] = useState('google')
   const [busy, setBusy] = useState(false)
-  const [url, setUrl] = useState('')
-  // With no address, the main process reads the clipboard instead.
-  const set = async (address) => {
+  const [msg, setMsg] = useState(null)
+
+  async function add(k, payload, wait) {
     setBusy(true)
-    const r = await api.setCalendar(address)
+    setMsg(wait ? { ok: true, text: wait } : null)
+    const r = await api.calendarAdd(k, payload)
     setBusy(false)
-    if (!r) return
+    if (!r) return false
     setView(r.view)
-    if (r.ok) setUrl('')
-    setMsg(r.ok ? { ok: true, text: 'Calendar saved. Events appear after the first fetch.' } : { ok: false, text: r.error })
+    setMsg(r.ok ? { ok: true, text: 'Calendar added. Events appear after the first fetch.' } : { ok: false, text: r.error })
+    return r.ok
   }
-  const remove = async () => {
-    const v = await api.removeCalendar()
+  const update = async (id, patch) => {
+    const v = await api.calendarUpdate(id, patch)
     if (v) setView(v)
-    setMsg({ ok: true, text: 'Calendar removed.' })
   }
-  const google = view.google?.signedIn
+  const remove = async (a) => {
+    const v = await api.calendarRemove(a.id)
+    if (v) setView(v)
+    setMsg({ ok: true, text: `${a.label} removed.` })
+  }
+  const nextColor = (c) => CALENDAR_COLORS[(CALENDAR_COLORS.indexOf(c) + 1) % CALENDAR_COLORS.length]
+
   return (
     <>
-      <GoogleCard view={view} setView={setView} />
-      <Card
-        title="Or use the iCal address"
-        help={
-          google
-            ? 'Not used while signed in with Google.'
-            : 'No Google Cloud setup, but Google only updates this copy every few hours.'
-        }
-      >
-        <Row
-          label="iCal address"
-          help={view.calendarConfigured ? 'Saved. Refreshed every 15 minutes.' : 'Not set yet.'}
-        >
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-              view.calendarConfigured ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/[0.08] text-white/50'
-            }`}
-          >
-            {view.calendarConfigured ? 'Connected' : 'Not set'}
-          </span>
+      <Card title="Your calendars" help="Events from every calendar that is switched on show together in the island.">
+        {accounts.length === 0 ? (
+          <Row label="No calendars yet" help="Add one below." />
+        ) : (
+          accounts.map((a) => (
+            <div key={a.id} className="flex min-h-[60px] items-center gap-3 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => update(a.id, { color: nextColor(a.color) })}
+                title="Change colour"
+                aria-label={`Change colour of ${a.label}`}
+                className="h-3.5 w-3.5 shrink-0 rounded-full ring-2 ring-white/10 hover:ring-white/30"
+                style={{ backgroundColor: a.color }}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium text-white/90">{a.label}</div>
+                <p className={`mt-0.5 text-[12px] leading-snug ${a.error ? 'text-amber-300/90' : 'text-white/45'}`}>
+                  {a.error || `${KIND_NAMES[a.kind]}${a.ownClient ? ', your own client' : ''}${a.enabled ? '' : ', hidden'}`}
+                </p>
+              </div>
+              <Toggle checked={a.enabled} onChange={(on) => update(a.id, { enabled: on })} label={`Show ${a.label}`} />
+              <button type="button" onClick={() => remove(a)} className={secondary}>
+                Remove
+              </button>
+            </div>
+          ))
+        )}
+      </Card>
+
+      <Card title="Add a calendar">
+        <Row id="cal-kind" label="Service">
+          <Segmented
+            labelledBy="cal-kind"
+            value={kind}
+            options={ADD_KINDS}
+            onChange={(k) => {
+              setKind(k)
+              setMsg(null)
+            }}
+          />
         </Row>
         <div className="space-y-3 px-4 py-4">
-          <ol className="list-decimal space-y-1 pl-4 text-[12px] leading-snug text-white/55">
-            <li>In Google Calendar, open Settings and pick your calendar.</li>
-            <li>Copy the "Secret address in iCal format".</li>
-            <li>Paste it below and press Save. It is stored encrypted and kept until you remove it.</li>
-          </ol>
-          <form
-            className="flex items-center gap-2 pt-1"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (url.trim()) set(url)
-            }}
-          >
-            <input
-              type="password"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder={view.calendarConfigured ? 'Paste a new address to replace it' : 'https://calendar.google.com/...basic.ics'}
-              aria-label="Secret iCal address"
-              autoComplete="off"
-              spellCheck={false}
-              className={input}
-            />
-            <button type="submit" disabled={busy || !url.trim()} className={`${btn} bg-accent text-white hover:bg-[#2b95ff]`}>
-              Save
-            </button>
-          </form>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => set()}
-              disabled={busy}
-              className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12]`}
-            >
-              Use copied address
-            </button>
-            <button
-              type="button"
-              onClick={remove}
-              disabled={!view.calendarConfigured}
-              className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12]`}
-            >
-              Remove
-            </button>
-          </div>
-          <p
-            aria-live="polite"
-            className={`min-h-[18px] text-[12px] ${msg ? (msg.ok ? 'text-white/55' : 'text-amber-300/90') : ''}`}
-          >
+          {kind === 'google' && <GoogleForm builtIn={builtIn.google} busy={busy} add={add} />}
+          {kind === 'microsoft' && <OutlookForm builtIn={builtIn.microsoft} busy={busy} add={add} onIcs={() => setKind('ics')} />}
+          {kind === 'caldav' && <ICloudForm busy={busy} add={add} />}
+          {kind === 'ics' && <IcsForm busy={busy} add={add} />}
+          {kind === 'notion' && <NotionForm busy={busy} add={add} />}
+          <p aria-live="polite" className={`min-h-[18px] text-[12px] ${msg ? (msg.ok ? 'text-white/55' : 'text-amber-300/90') : ''}`}>
             {msg?.text}
           </p>
         </div>
@@ -581,111 +579,227 @@ function CalendarSection({ view, setView }) {
 
 const input =
   'min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-black/30 px-3 py-1.5 text-[13px] text-white placeholder:text-white/30'
+const primary = `${btn} bg-accent text-white hover:bg-[#2b95ff]`
+const secondary = `${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12]`
+const linkish = 'text-[12px] text-white/45 underline-offset-2 hover:text-white/75 hover:underline'
 
-// Google Calendar API sign-in. The user creates their own OAuth client once (steps below); the
-// secret is sent to the main process, stored encrypted, and never shown again.
-function GoogleCard({ view, setView }) {
-  const g = view.google || {}
-  const [clientId, setClientId] = useState(g.clientId || '')
+function Steps({ children }) {
+  return <ol className="list-decimal space-y-1 pl-4 text-[12px] leading-snug text-white/55">{children}</ol>
+}
+const B = ({ children }) => <b className="text-white/75">{children}</b>
+
+function Field({ type = 'text', value, onChange, placeholder, label }) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      aria-label={label}
+      autoComplete="off"
+      spellCheck={false}
+      className={input}
+    />
+  )
+}
+
+// Google: one button with TheIsland's own client. The user's own Google Cloud client stays as an option.
+function GoogleForm({ builtIn, busy, add }) {
+  const [own, setOwn] = useState(!builtIn)
+  const [clientId, setClientId] = useState('')
   const [secret, setSecret] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState(null)
-  const signIn = async (e) => {
-    e.preventDefault()
-    setBusy(true)
-    setMsg({ ok: true, text: 'Finish signing in in your browser...' })
-    const r = await api.googleSignIn({ clientId, clientSecret: secret })
-    setBusy(false)
-    if (!r) return
-    setView(r.view)
-    if (r.ok) setSecret('')
-    setMsg(r.ok ? { ok: true, text: 'Signed in. Events load in a moment.' } : { ok: false, text: r.error })
-  }
-  const signOut = async () => {
-    const v = await api.googleSignOut()
-    if (v) setView(v)
-    setMsg({ ok: true, text: 'Signed out.' })
+  const wait = 'Finish signing in in your browser...'
+  return (
+    <>
+      <p className="text-[12px] leading-snug text-white/55">
+        Read-only access to the calendars you show in Google Calendar. Changes appear within seconds of opening the island.
+      </p>
+      {builtIn && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="button" disabled={busy} onClick={() => add('google', {}, wait)} className={primary}>
+            Sign in with Google
+          </button>
+          <button type="button" onClick={() => setOwn(!own)} className={linkish}>
+            {own ? 'Hide own client' : 'Use my own Google Cloud client'}
+          </button>
+        </div>
+      )}
+      {own && (
+        <form
+          className="space-y-2 rounded-lg bg-white/[0.03] p-3"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            if (await add('google', { clientId, clientSecret: secret }, wait)) setSecret('')
+          }}
+        >
+          <Steps>
+            <li>
+              In Google Cloud Console, create a project and enable the <B>Google Calendar API</B>.
+            </li>
+            <li>
+              Under <B>Google Auth Platform</B>, set up the consent screen (External) and add yourself as a test user, or publish
+              the app so sign-in doesn't expire every 7 days.
+            </li>
+            <li>
+              Under <B>Clients</B>, create a client of type <B>Desktop app</B> and paste its ID and secret here.
+            </li>
+          </Steps>
+          <button type="button" onClick={() => api.openCalendarHelp('googleConsole')} className={secondary}>
+            Open Google Cloud Console
+          </button>
+          <div className="flex gap-2">
+            <Field value={clientId} onChange={setClientId} placeholder="Client ID (...apps.googleusercontent.com)" label="Client ID" />
+          </div>
+          <div className="flex gap-2">
+            <Field type="password" value={secret} onChange={setSecret} placeholder="Client secret" label="Client secret" />
+            <button type="submit" disabled={busy || !clientId.trim() || !secret.trim()} className={primary}>
+              Sign in
+            </button>
+          </div>
+        </form>
+      )}
+    </>
+  )
+}
+
+function OutlookForm({ builtIn, busy, add, onIcs }) {
+  if (!builtIn) {
+    return (
+      <p className="text-[12px] leading-snug text-white/55">
+        Outlook sign-in isn't in this build. You can still add Outlook as an iCal link: in Outlook on the web, open{' '}
+        <B>Settings &gt; Calendar &gt; Shared calendars</B>, publish your calendar and copy the ICS link.{' '}
+        <button type="button" onClick={onIcs} className="text-accent hover:underline">
+          Add an iCal link
+        </button>
+      </p>
+    )
   }
   return (
-    <Card title="Google account" help="Reads your calendars directly, so changes show up within seconds of opening the island.">
-      <Row label="Google Calendar" help={g.signedIn ? 'Signed in. Checked every 3 minutes and whenever the island opens.' : 'Not signed in.'}>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-            g.signedIn ? 'bg-emerald-400/15 text-emerald-300' : 'bg-white/[0.08] text-white/50'
-          }`}
-        >
-          {g.signedIn ? 'Signed in' : 'Not signed in'}
-        </span>
-      </Row>
-      <div className="space-y-3 px-4 py-4">
-        {g.signedIn ? (
-          <button type="button" onClick={signOut} className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12]`}>
-            Sign out
-          </button>
-        ) : (
-          <>
-            <ol className="list-decimal space-y-1 pl-4 text-[12px] leading-snug text-white/55">
-              <li>
-                In Google Cloud Console, create a project and enable the <b className="text-white/75">Google Calendar API</b>.
-              </li>
-              <li>
-                Under <b className="text-white/75">Google Auth Platform</b>, set up the consent screen (External) and add
-                yourself as a test user, or publish the app so sign-in doesn't expire every 7 days.
-              </li>
-              <li>
-                Under <b className="text-white/75">Clients</b>, create a client of type <b className="text-white/75">Desktop app</b>{' '}
-                and paste its ID and secret here.
-              </li>
-            </ol>
-            <button
-              type="button"
-              onClick={() => api.openGoogleConsole()}
-              className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12]`}
-            >
-              Open Google Cloud Console
-            </button>
-            <form className="space-y-2" onSubmit={signIn}>
-              <div className="flex gap-2">
-                <input
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  placeholder="Client ID (...apps.googleusercontent.com)"
-                  aria-label="Client ID"
-                  autoComplete="off"
-                  spellCheck={false}
-                  className={input}
-                />
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={secret}
-                  onChange={(e) => setSecret(e.target.value)}
-                  placeholder="Client secret"
-                  aria-label="Client secret"
-                  autoComplete="off"
-                  spellCheck={false}
-                  className={input}
-                />
-                <button
-                  type="submit"
-                  disabled={busy || !clientId.trim() || !secret.trim()}
-                  className={`${btn} bg-accent text-white hover:bg-[#2b95ff]`}
-                >
-                  Sign in with Google
-                </button>
-              </div>
-            </form>
-          </>
-        )}
-        <p
-          aria-live="polite"
-          className={`min-h-[18px] text-[12px] ${msg ? (msg.ok ? 'text-white/55' : 'text-amber-300/90') : ''}`}
-        >
-          {msg?.text}
-        </p>
+    <>
+      <p className="text-[12px] leading-snug text-white/55">
+        Outlook.com, Hotmail and Microsoft 365 work or school accounts. Read-only access to your main calendar.
+      </p>
+      <button type="button" disabled={busy} onClick={() => add('microsoft', {}, 'Finish signing in in your browser...')} className={primary}>
+        Sign in with Microsoft
+      </button>
+    </>
+  )
+}
+
+// iCloud has no sign-in for other apps: an app-specific password over CalDAV is Apple's way.
+function ICloudForm({ busy, add }) {
+  const [appleId, setAppleId] = useState('')
+  const [password, setPassword] = useState('')
+  const [server, setServer] = useState('')
+  const [other, setOther] = useState(false)
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={async (e) => {
+        e.preventDefault()
+        if (await add('caldav', { appleId, password, server: other ? server : '' }, 'Connecting...')) setPassword('')
+      }}
+    >
+      <Steps>
+        <li>
+          Sign in to your Apple Account, open <B>Sign-In and Security &gt; App-Specific Passwords</B> and make one called TheIsland.
+        </li>
+        <li>Enter your Apple ID email and that password. Your real Apple ID password is never needed.</li>
+      </Steps>
+      <button type="button" onClick={() => api.openCalendarHelp('appleAppPasswords')} className={secondary}>
+        Open Apple Account
+      </button>
+      <div className="flex gap-2">
+        <Field value={appleId} onChange={setAppleId} placeholder={other ? 'User name' : 'Apple ID email'} label="Apple ID email" />
       </div>
-    </Card>
+      {other && (
+        <div className="flex gap-2">
+          <Field value={server} onChange={setServer} placeholder="https://caldav.example.com/" label="CalDAV server" />
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Field type="password" value={password} onChange={setPassword} placeholder="App-specific password" label="App-specific password" />
+        <button type="submit" disabled={busy || !appleId.trim() || !password.trim()} className={primary}>
+          Connect
+        </button>
+      </div>
+      <button type="button" onClick={() => setOther(!other)} className={linkish}>
+        {other ? 'Use iCloud' : 'Another CalDAV server (Fastmail, Nextcloud...)'}
+      </button>
+    </form>
+  )
+}
+
+function IcsForm({ busy, add }) {
+  const [url, setUrl] = useState('')
+  const [label, setLabel] = useState('')
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={async (e) => {
+        e.preventDefault()
+        if (await add('ics', { url, label }, 'Checking the address...')) {
+          setUrl('')
+          setLabel('')
+        }
+      }}
+    >
+      <p className="text-[12px] leading-snug text-white/55">
+        Any calendar with an iCal (.ics or webcal) address: Google's secret address, a published Outlook calendar, Proton, Fastmail,
+        school or team calendars. Some services only update these copies every few hours. The address is stored encrypted.
+      </p>
+      <div className="flex gap-2">
+        <Field value={label} onChange={setLabel} placeholder="Name (optional)" label="Calendar name" />
+      </div>
+      <div className="flex gap-2">
+        <Field type="password" value={url} onChange={setUrl} placeholder="https://... or webcal://..." label="iCal address" />
+        <button type="submit" disabled={busy || !url.trim()} className={primary}>
+          Add
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function NotionForm({ busy, add }) {
+  const [token, setToken] = useState('')
+  const [database, setDatabase] = useState('')
+  const [dateProperty, setDateProperty] = useState('')
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={async (e) => {
+        e.preventDefault()
+        if (await add('notion', { token, database, dateProperty }, 'Reading the database...')) setToken('')
+      }}
+    >
+      <Steps>
+        <li>
+          On Notion's <B>Integrations</B> page, make an internal integration with <B>Read content</B> and copy its secret.
+        </li>
+        <li>
+          Open your database, then <B>... &gt; Connections</B>, and add that integration.
+        </li>
+        <li>
+          Paste the secret and the database link (<B>Share &gt; Copy link</B>). Items with a date show up as events.
+        </li>
+      </Steps>
+      <button type="button" onClick={() => api.openCalendarHelp('notionIntegrations')} className={secondary}>
+        Open Notion integrations
+      </button>
+      <div className="flex gap-2">
+        <Field value={database} onChange={setDatabase} placeholder="Database link" label="Database link" />
+      </div>
+      <div className="flex gap-2">
+        <Field value={dateProperty} onChange={setDateProperty} placeholder="Date property (optional, the first one by default)" label="Date property" />
+      </div>
+      <div className="flex gap-2">
+        <Field type="password" value={token} onChange={setToken} placeholder="Integration secret" label="Integration secret" />
+        <button type="submit" disabled={busy || !token.trim() || !database.trim()} className={primary}>
+          Add
+        </button>
+      </div>
+    </form>
   )
 }
 
@@ -713,7 +827,16 @@ function AboutSection({ view, save }) {
         label="Footprint"
         help="At rest the island uses about 120 to 200 MB of memory and close to 0% CPU. This window exists only while it is open, so closing it gives its memory back."
       />
-      <Row label="Settings file" help="Saved in %USERPROFILE%\.theisland\config.json. The calendar address and Google sign-in are encrypted with Windows DPAPI." />
+      <Row label="Settings file" help="Saved in %USERPROFILE%\.theisland\config.json. Calendar sign-ins, passwords and addresses are encrypted with Windows DPAPI." />
+      <Row label="Feedback" help="Found a bug or want something new? Tell us on the website, no account needed.">
+        <span className="flex flex-wrap justify-end gap-2">
+          <LinkButton name="feedbackIdea">Suggest a feature</LinkButton>
+          <LinkButton name="feedbackBug">Report a bug</LinkButton>
+        </span>
+      </Row>
+      <Row label="Log file" help="For a bug report: opens the folder with island.log so you can attach it. Nothing is sent on its own.">
+        <LinkButton name="logs">Open log folder</LinkButton>
+      </Row>
       <Row label="Privacy" help="TheIsland collects nothing. The policy explains what it stores and what it connects to.">
         <LinkButton name="privacy">Privacy policy</LinkButton>
       </Row>

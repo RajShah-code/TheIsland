@@ -1,4 +1,4 @@
-// User settings in %USERPROFILE%\.theisland\config.json. Secrets (the calendar URL) are encrypted
+// User settings in %USERPROFILE%\.theisland\config.json. Secrets (calendar tokens and addresses) are encrypted
 // with Windows DPAPI through Electron's safeStorage, so the file alone doesn't reveal them.
 // The shape of the user-facing settings lives in src/shared/settings-model.mjs; changes from the
 // settings window go through updateSettings(), which validates, clamps and drops unknown keys.
@@ -11,6 +11,9 @@ const DEFAULTS = {
   // approvalTimeoutSec: how long the island waits for Allow/Deny before handing the prompt back to
   // the terminal. The rest is described in settings-model.mjs.
   ...DEFAULT_SETTINGS,
+  // Calendar accounts (calendars/accounts.js). Their secrets are `calendarSecret:<id>` keys. The four
+  // keys below are from older versions and are moved into accounts on the first start.
+  calendarAccounts: undefined,
   calendarUrl: null,
   googleClientId: null,
   googleClientSecret: null,
