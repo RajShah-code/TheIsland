@@ -20,11 +20,28 @@ function siteMeta() {
       const values = {
         TITLE: page.title,
         DESCRIPTION: page.description,
-        URL: new URL(page.file, site.url).href,
+        URL: new URL((page.file || '').replace(/\.html$/, ''), site.url).href,
         OG_IMAGE: new URL(site.ogImage, site.url).href,
       }
       return html.replace(/%SITE_(\w+)%/g, (match, k) => (k in values ? escape(values[k]) : match))
     },
+  }
+}
+
+// Serves /download as download.html, like GitHub Pages does, so the clean links work in dev and preview.
+function cleanUrls() {
+  const files = new Set(Object.values(site.pages).map((page) => page.file).filter(Boolean))
+  const rewrite = (req, res, next) => {
+    const [path, query = ''] = req.url.split('?')
+    const base = process.env.BASE || '/'
+    const name = path.startsWith(base) ? path.slice(base.length) : ''
+    if (files.has(`${name}.html`)) req.url = `${base}${name}.html${query && '?' + query}`
+    next()
+  }
+  return {
+    name: 'clean-urls',
+    configureServer: (server) => void server.middlewares.use(rewrite),
+    configurePreviewServer: (server) => void server.middlewares.use(rewrite),
   }
 }
 
@@ -35,7 +52,7 @@ const input = Object.fromEntries(
 
 export default defineConfig({
   base: process.env.BASE || '/',
-  plugins: [react(), tailwindcss(), siteMeta()],
+  plugins: [react(), tailwindcss(), siteMeta(), cleanUrls()],
   build: { rollupOptions: { input } },
   server: { port: 5180, strictPort: true },
 })

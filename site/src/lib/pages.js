@@ -4,6 +4,7 @@ import { site } from '../content/site.js'
 // site works both at rajshah-code.github.io/TheIsland/ and on a custom domain.
 export const currentPage = document.body.dataset.page || 'index'
 
+// Clean URLs (download, not download.html): GitHub Pages serves foo.html at /foo, and so does the dev server.
 export function pageHref(key) {
-  return site.pages[key]?.file || './'
+  return site.pages[key]?.file?.replace(/\.html$/, '') || './'
 }

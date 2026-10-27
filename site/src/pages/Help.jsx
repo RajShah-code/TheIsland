@@ -59,7 +59,7 @@ function Guide({ guide, open, onToggle }) {
 
 function Guides() {
   const { help } = site
-  // A link like help.html#claude-code opens that guide.
+  // A link like help#claude-code opens that guide.
   const [open, setOpen] = useState(() => {
     const hash = window.location.hash.slice(1)
     return Math.max(0, help.guides.findIndex((g) => g.id === hash))

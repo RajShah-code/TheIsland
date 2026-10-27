@@ -26,9 +26,9 @@ Package to upload: `dist/TheIsland-Store-<version>.appx` (`npm run dist:store`).
 |---|---|
 | Category | **Productivity** |
 | Subcategory | (none) |
-| Privacy policy URL | `https://rajshah-code.github.io/TheIsland/privacy.html` |
+| Privacy policy URL | `https://rajshah-code.github.io/TheIsland/privacy` |
 | Website | `https://rajshah-code.github.io/TheIsland/` |
-| Support contact info | `https://rajshah-code.github.io/TheIsland/help.html` |
+| Support contact info | `https://rajshah-code.github.io/TheIsland/help` |
 | Game settings | Not applicable |
 
 **Product declarations** (tick only these):
@@ -162,7 +162,7 @@ productivity
 
 ```
 TheIsland is free and open-source software, licensed under the MIT License:
-https://rajshah-code.github.io/TheIsland/license.html
+https://rajshah-code.github.io/TheIsland/license
 
 MIT License
 

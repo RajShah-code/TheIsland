@@ -132,10 +132,10 @@ const SETTINGS_PAGES = {
 const WEBSITE = 'https://rajshah-code.github.io/TheIsland/'
 const SETTINGS_LINKS = {
   website: WEBSITE,
-  download: WEBSITE + 'download.html',
-  privacy: WEBSITE + 'privacy.html',
-  license: WEBSITE + 'license.html',
-  help: WEBSITE + 'help.html',
+  download: WEBSITE + 'download',
+  privacy: WEBSITE + 'privacy',
+  license: WEBSITE + 'license',
+  help: WEBSITE + 'help',
   startup: 'ms-settings:startupapps'
 }
 

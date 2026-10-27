@@ -105,14 +105,14 @@ export const site = {
           title: 'For every day',
           text: 'What’s playing, what’s next on your calendar and quick system controls, without opening a window.',
           points: ['Music from any player', 'Your Google Calendar week', 'Volume, brightness, Wi-Fi and more', 'Hides during fullscreen'],
-          link: { label: 'See every feature', href: 'features.html' },
+          link: { label: 'See every feature', href: 'features' },
         },
         {
           id: 'developers',
           title: 'For developers',
           text: 'First-class Claude Code support: approve commands and answer questions without leaving your work.',
           points: ['Readable approvals, no “Always allow”', 'Questions with real buttons', 'Every session and subagent, live', 'Stays on your PC'],
-          link: { label: 'Claude Code support', href: 'features.html#developers' },
+          link: { label: 'Claude Code support', href: 'features#developers' },
         },
       ],
     },
@@ -125,8 +125,8 @@ export const site = {
         { title: 'Open source', text: 'Read every line before you run it.' },
       ],
       links: [
-        { label: 'Privacy policy', href: 'privacy.html' },
-        { label: 'How it stays safe', href: 'security.html' },
+        { label: 'Privacy policy', href: 'privacy' },
+        { label: 'How it stays safe', href: 'security' },
       ],
     },
     cta: {
@@ -451,11 +451,11 @@ export const site = {
     legal: {
       text: 'Before you pay, see the',
       links: [
-        { label: 'Terms', href: 'terms.html' },
-        { label: 'Refunds', href: 'refunds.html' },
-        { label: 'Shipping and delivery', href: 'delivery.html' },
-        { label: 'Privacy policy', href: 'privacy.html' },
-        { label: 'Contact us', href: 'contact.html' },
+        { label: 'Terms', href: 'terms' },
+        { label: 'Refunds', href: 'refunds' },
+        { label: 'Shipping and delivery', href: 'delivery' },
+        { label: 'Privacy policy', href: 'privacy' },
+        { label: 'Contact us', href: 'contact' },
       ],
     },
     freeTitle: 'Ways to help that cost nothing',
@@ -526,7 +526,7 @@ export const site = {
       },
     ],
     links: [
-      { label: 'Contact us', href: 'contact.html' },
+      { label: 'Contact us', href: 'contact' },
       { label: 'Open an issue', href: `${repo}/issues` },
       { label: 'Report a problem privately', href: `${repo}/security/advisories/new` },
       { label: 'GitHub privacy statement', href: 'https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement' },
@@ -580,10 +580,10 @@ export const site = {
       },
     ],
     links: [
-      { label: 'Refunds and cancellations', href: 'refunds.html' },
-      { label: 'Privacy policy', href: 'privacy.html' },
-      { label: 'License', href: 'license.html' },
-      { label: 'Contact us', href: 'contact.html' },
+      { label: 'Refunds and cancellations', href: 'refunds' },
+      { label: 'Privacy policy', href: 'privacy' },
+      { label: 'License', href: 'license' },
+      { label: 'Contact us', href: 'contact' },
     ],
   },
 
@@ -621,8 +621,8 @@ export const site = {
       },
     ],
     links: [
-      { label: 'Contact us', href: 'contact.html' },
-      { label: 'Terms and conditions', href: 'terms.html' },
+      { label: 'Contact us', href: 'contact' },
+      { label: 'Terms and conditions', href: 'terms' },
       { label: 'GitHub Sponsors: cancelling', href: 'https://docs.github.com/sponsors/sponsoring-open-source-contributors/managing-your-sponsorship' },
     ],
   },
@@ -651,9 +651,9 @@ export const site = {
       },
     ],
     links: [
-      { label: 'Download', href: 'download.html' },
-      { label: 'Refunds and cancellations', href: 'refunds.html' },
-      { label: 'Contact us', href: 'contact.html' },
+      { label: 'Download', href: 'download' },
+      { label: 'Refunds and cancellations', href: 'refunds' },
+      { label: 'Contact us', href: 'contact' },
     ],
   },
 
@@ -680,7 +680,7 @@ export const site = {
     links: [
       { label: 'Open an issue', href: `${repo}/issues` },
       { label: 'Report a problem privately', href: `${repo}/security/advisories/new` },
-      { label: 'Get Help', href: 'help.html' },
+      { label: 'Get Help', href: 'help' },
     ],
   },
 
@@ -743,18 +743,18 @@ SOFTWARE.`,
       {
         title: 'Product',
         links: [
-          { label: 'Features', href: 'features.html' },
-          { label: 'Download', href: 'download.html' },
-          { label: 'Get Help', href: 'help.html' },
-          { label: 'Support Us', href: 'support.html' },
+          { label: 'Features', href: 'features' },
+          { label: 'Download', href: 'download' },
+          { label: 'Get Help', href: 'help' },
+          { label: 'Support Us', href: 'support' },
         ],
       },
       {
         title: 'Trust',
         links: [
-          { label: 'Privacy policy', href: 'privacy.html' },
-          { label: 'Security', href: 'security.html' },
-          { label: 'License', href: 'license.html' },
+          { label: 'Privacy policy', href: 'privacy' },
+          { label: 'Security', href: 'security' },
+          { label: 'License', href: 'license' },
         ],
       },
       {
@@ -762,10 +762,10 @@ SOFTWARE.`,
         // Shown only on these pages.
         pages: ['support', 'privacy', 'security', 'license', 'terms', 'refunds', 'delivery', 'contact'],
         links: [
-          { label: 'Terms', href: 'terms.html' },
-          { label: 'Refunds', href: 'refunds.html' },
-          { label: 'Shipping and delivery', href: 'delivery.html' },
-          { label: 'Contact us', href: 'contact.html' },
+          { label: 'Terms', href: 'terms' },
+          { label: 'Refunds', href: 'refunds' },
+          { label: 'Shipping and delivery', href: 'delivery' },
+          { label: 'Contact us', href: 'contact' },
         ],
       },
       {
