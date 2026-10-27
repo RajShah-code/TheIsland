@@ -84,6 +84,7 @@ export const site = {
 
   repo,
   releases: `${repo}/releases/latest`,
+  store: 'https://apps.microsoft.com/detail/9PFH56G16HFB',
   releasesApi: 'https://api.github.com/repos/RajShah-code/TheIsland/releases',
 
   // The main menu. `page` is a key of `pages` above.
@@ -229,7 +230,7 @@ export const site = {
     title: 'Get TheIsland for Windows.',
     intro: 'Free and open source. The installer sets everything up for you, and Node.js or other tools are not needed.',
     requirements: ['Windows 11, 64-bit', 'About 370 MB of disk space', 'Claude Code only if you want its support (optional)'],
-    store: 'Coming soon to the Microsoft Store, with automatic updates.',
+    store: 'Also in the Microsoft Store, which installs it without a SmartScreen warning and keeps it up to date.',
     smartscreen: {
       title: 'If Windows says it “protected your PC”',
       text: 'The installer isn’t code-signed yet, so Windows SmartScreen may warn about it the first time. Click More info, then Run anyway. You can compare the file with the SHA-256 checksum below, and every line of the source is on GitHub.',
@@ -464,7 +465,7 @@ export const site = {
   // The privacy policy page (privacy.html). Keep it in step with what the app actually does.
   privacy: {
     title: 'Privacy policy',
-    updated: '26 October 2026',
+    updated: '27 October 2026',
     intro:
       'TheIsland runs on your PC. It has no account, no ads and no analytics, and Archway receives no data from the app. This page explains what it stores, what it connects to and why.',
     sections: [
@@ -504,7 +505,7 @@ export const site = {
       {
         title: 'Downloads, donations and stores',
         items: [
-          'Installers come from GitHub Releases (or from the Microsoft Store, under Microsoft’s privacy statement, once it is listed there).',
+          'Installers come from GitHub Releases, or from the Microsoft Store under Microsoft’s privacy statement.',
           'Sponsorships are handled by GitHub Sponsors and Stripe. Archway only sees what GitHub shows a sponsored developer, such as your GitHub username.',
           'One-time contributions by UPI, card, net banking or wallet are processed by Razorpay, under its own privacy policy. Razorpay collects the payment details needed to process the payment and send you a receipt.',
           'From such a payment Archway receives the amount, the date, the payment status and the contact details you enter on the payment page (such as your name, email address and phone number). Archway never sees your full card number, CVV, UPI PIN or bank login.',
@@ -624,14 +625,14 @@ export const site = {
   // The shipping and delivery policy (delivery.html).
   delivery: {
     title: 'Shipping and delivery',
-    updated: '26 October 2026',
+    updated: '27 October 2026',
     intro:
       'TheIsland is software you download, and contributions to it are gifts that unlock nothing. Nothing physical is ever shipped.',
     sections: [
       {
         title: 'The app',
         items: [
-          'TheIsland is free. You can download it any time from the Download page (from GitHub Releases), and from the Microsoft Store once it is listed there.',
+          'TheIsland is free. You can download it any time from the Download page (from GitHub Releases) or from the Microsoft Store.',
           'The download starts right away in your browser. There is no shipping, no shipping charge and no delivery address needed.',
         ],
       },

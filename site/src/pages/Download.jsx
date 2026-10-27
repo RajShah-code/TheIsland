@@ -51,6 +51,9 @@ function DownloadCard() {
             <Button href={latest.url} icon="download">
               Download for Windows
             </Button>
+            <Button href={site.store} variant="secondary" icon="external" target="_blank" rel="noreferrer">
+              Get it from Microsoft Store
+            </Button>
             <Button href={site.releases} variant="secondary" icon="external" target="_blank" rel="noreferrer">
               All files on GitHub
             </Button>
