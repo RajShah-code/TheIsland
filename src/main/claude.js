@@ -1,8 +1,11 @@
-// Claude Code sessions and pending approvals, built from hook events.
+// Coding agent sessions (Claude Code, Codex, Gemini CLI, Antigravity, Cursor, Copilot CLI) and pending
+// approvals, built from hook events. The relay turns every agent's events into Claude Code's shape and
+// says which agent sent them (p.agent); sessions are keyed per agent so ids can't collide.
 // Everything here is in memory only.
 import { execFile } from 'node:child_process'
 import crypto from 'node:crypto'
 import path from 'node:path'
+import { AGENT_IDS as AGENTS, AGENT_NAMES } from '../shared/agents.mjs'
 import { log } from './log'
 
 // A session can vanish without SessionEnd (terminal closed, Claude killed mid-tool). Two guards:
@@ -19,6 +22,7 @@ const FORGET_MS = 45 * 60 * 1000
 // Subagents (the Agent tool, "Task" in older versions): finished ones stay visible for a moment, and a
 // session keeps at most this many (the oldest finished ones go first).
 const AGENT_TOOL = /^(Agent|Task)$/
+
 const AGENT_KEEP_MS = 20 * 1000
 const MAX_AGENTS = 8
 // If the hook's parent is a shell, it dies right after the hook, so its pid says nothing.
@@ -136,7 +140,8 @@ export function createClaudeHub({ getConfig, onChange, onAttention, closedHosts 
 
   function dropClosedWindows() {
     if (!closedHosts) return
-    const list = [...sessions.values()].filter((s) => s.pid && finished(s))
+    // Only Claude Code runs inside the Claude desktop app.
+    const list = [...sessions.values()].filter((s) => s.agent === 'claude' && s.pid && finished(s))
     if (list.length === 0) return
     closedHosts(list.map((s) => s.pid)).then((closed) => {
       let any = false
@@ -167,7 +172,8 @@ export function createClaudeHub({ getConfig, onChange, onAttention, closedHosts 
     if (!s) {
       s = {
         id: p.session_id,
-        project: p.cwd ? path.basename(p.cwd) : 'Claude',
+        agent: p.agent,
+        project: p.cwd ? path.basename(p.cwd) : AGENT_NAMES[p.agent],
         title: null,
         state: 'idle',
         tool: null,
@@ -192,6 +198,8 @@ export function createClaudeHub({ getConfig, onChange, onAttention, closedHosts 
   }
 
   function handle(p, reply, onGone) {
+    p.agent = AGENTS.includes(p.agent) ? p.agent : 'claude'
+    if (p.agent !== 'claude') p.session_id = p.agent + ':' + p.session_id
     if (p.event === 'SessionEnd') {
       sessions.delete(p.session_id)
       for (const a of approvals.values()) if (a.sessionId === p.session_id) resolve(a.id, null)
@@ -480,6 +488,7 @@ export function createClaudeHub({ getConfig, onChange, onAttention, closedHosts 
     const a = {
       id,
       sessionId: s.id,
+      agent: s.agent,
       project: s.project,
       tool: p.tool_name || 'Tool',
       input: p.tool_input || {},

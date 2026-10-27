@@ -1,5 +1,7 @@
-// Claude Code status and approvals (core of the island, not a widget).
+// Coding agent status and approvals (core of the island, not a widget). Claude Code first; Codex,
+// Gemini CLI, Antigravity, Cursor and Copilot CLI come through the same relay (src/shared/agents.mjs).
 import { useEffect, useState } from 'react'
+import { AGENT_NAMES } from '../../../shared/agents.mjs'
 import { useIsland } from '../store'
 import { Buddy, buddyReact } from './Buddy'
 
@@ -13,6 +15,12 @@ function useBlink(on) {
     return () => clearInterval(t)
   }, [on])
   return !on || lit
+}
+
+// Names the agent on an approval when it isn't Claude Code.
+function AgentTag({ agent }) {
+  if (!agent || agent === 'claude') return null
+  return <span className="rounded bg-white/10 px-1 text-[10px] text-white/55">{AGENT_NAMES[agent] || agent}</span>
 }
 
 export const STATE = {
@@ -122,9 +130,11 @@ export function ClaudePanel({ sessions, active }) {
   const lit = useBlink(active && sessions.some((s) => runningAgents(s) > 0))
   const now = Date.now()
   if (sessions.length === 0) {
-    return <p className="text-xs text-white/45">No Claude Code sessions right now</p>
+    return <p className="text-xs text-white/45">No coding agent sessions right now</p>
   }
   const top = mostRelevant(sessions)
+  // With sessions from more than one agent, each row says whose it is.
+  const mixed = new Set(sessions.map((s) => s.agent || 'claude')).size > 1
   return (
     <div className="flex items-start gap-3">
       {buddy && <Buddy mood={top.state} tool={top.tool} beat={top.updatedAt} cell={2.5} active={active} follow />}
@@ -134,6 +144,7 @@ export function ClaudePanel({ sessions, active }) {
             <div className="flex items-center gap-2 text-xs">
               <Dot state={s.state} />
               <span className="max-w-[150px] shrink-0 truncate font-medium">{s.title || s.project}</span>
+              {mixed && <span className="shrink-0 rounded bg-white/10 px-1 text-[10px] text-white/55">{AGENT_NAMES[s.agent] || s.agent}</span>}
               <span className="shrink-0 text-white/45">{STATE[s.state]?.label}</span>
               {s.state === 'working' && (
                 <span className="min-w-0 truncate font-mono text-[11px] text-white/40">
@@ -263,6 +274,7 @@ function QuestionCard({ approval, queued, active }) {
       <div className="flex items-center gap-2 text-xs">
         <Mascot mood="waiting" cell={2} active={active} />
         <span className="font-semibold">{approval.project}</span>
+        <AgentTag agent={approval.agent} />
         <span className="text-white/50">{questions.length > 1 ? 'has a few questions' : 'asks you'}</span>
         {queued > 0 && <span className="ml-auto text-white/40">+{queued} more</span>}
       </div>
@@ -345,6 +357,7 @@ function PermissionCard({ approval, queued, active }) {
       <div className="flex items-center gap-2 text-xs">
         <Mascot mood="waiting" cell={2} active={active} />
         <span className="font-semibold">{approval.project}</span>
+        <AgentTag agent={approval.agent} />
         <span className="text-white/50">wants to use</span>
         <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px]">{approval.tool}</span>
         {queued > 0 && <span className="ml-auto text-white/40">+{queued} more</span>}

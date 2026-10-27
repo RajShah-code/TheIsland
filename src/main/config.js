@@ -18,8 +18,10 @@ const DEFAULTS = {
   googleClientId: null,
   googleClientSecret: null,
   googleRefreshToken: null,
-  // The one-time offer to connect Claude Code has been shown (claude-hooks.js).
-  claudeHooksOffered: false
+  // The one-time offers to connect coding agents have been shown (claude-hooks.js): Claude Code's old flag
+  // and { agent: true } for every agent.
+  claudeHooksOffered: false,
+  agentHooksOffered: {}
 }
 
 let cache = null

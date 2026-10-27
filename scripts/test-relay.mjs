@@ -33,10 +33,10 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(0, '127.0.0.1', r))
 fs.writeFileSync(relayJson, JSON.stringify({ port: server.address().port, token, pid: 1 }))
 
-function relay(input) {
+function relay(input, args = []) {
   requests = []
   return new Promise((resolve) => {
-    const p = spawn(exe, ['--hook'], { env: { ...process.env, USERPROFILE: home }, windowsHide: true })
+    const p = spawn(exe, ['--hook', ...args], { env: { ...process.env, USERPROFILE: home }, windowsHide: true })
     let out = ''
     p.stdout.on('data', (c) => (out += c))
     p.on('close', (code) => resolve({ code, out, sent: requests.map((r) => r.body), requests }))
@@ -45,8 +45,8 @@ function relay(input) {
 }
 
 // Runs one event and returns the single payload it sent.
-async function send(event) {
-  const r = await relay(event)
+async function send(event, args) {
+  const r = await relay(event, args)
   assert.equal(r.code, 0)
   assert.equal(r.out, '', 'status events print nothing')
   assert.equal(r.sent.length, 1)
@@ -143,6 +143,72 @@ test('questions answered in the island come back as updatedInput', async () => {
   answers = ['A']
   assert.equal((await relay(ask)).out, '')
   answers = null
+})
+
+test('Claude Code events are marked as claude', async () => {
+  assert.equal((await send({ hook_event_name: 'Stop', session_id: 's' })).agent, 'claude')
+})
+
+test('Codex events keep their names and can be approved', async () => {
+  const codex = ['--agent', 'codex']
+  const b = await send({ hook_event_name: 'PreToolUse', session_id: 'c', cwd: 'D:/p', tool_name: 'shell', tool_input: { command: 'ls' } }, codex)
+  assert.deepEqual([b.agent, b.event, b.session_id, b.hint], ['codex', 'PreToolUse', 'c', 'ls'])
+  decision = 'allow'
+  const r = await relay({ hook_event_name: 'PermissionRequest', session_id: 'c', tool_name: 'shell', tool_input: { command: 'rm x' } }, codex)
+  assert.equal(JSON.parse(r.out).hookSpecificOutput.decision.behavior, 'allow')
+  decision = null
+})
+
+test('Gemini CLI events map to the same names, prompts dropped', async () => {
+  const gemini = ['--agent', 'gemini']
+  const pre = await send({ hook_event_name: 'BeforeTool', session_id: 'g', cwd: 'D:/p', tool_name: 'run_shell_command', tool_input: { command: 'npm test' } }, gemini)
+  assert.deepEqual([pre.event, pre.tool_name, pre.hint], ['PreToolUse', 'run_shell_command', 'npm test'])
+  const prompt = await send({ hook_event_name: 'BeforeAgent', session_id: 'g', prompt: 'SECRET' }, gemini)
+  assert.equal(prompt.event, 'UserPromptSubmit')
+  assert.ok(!JSON.stringify(prompt).includes('SECRET'))
+  assert.equal((await send({ hook_event_name: 'AfterAgent', session_id: 'g', prompt_response: 'SECRET' }, gemini)).event, 'Stop')
+  const note = await send({ hook_event_name: 'Notification', session_id: 'g', notification_type: 'ToolPermission', message: 'm' }, gemini)
+  assert.equal(note.notification_type, 'permission_prompt')
+})
+
+test('agents other than Claude Code and Codex never wait for an approval', async () => {
+  decision = 'allow'
+  const r = await relay({ hook_event_name: 'PermissionRequest', session_id: 'g', tool_name: 't' }, ['--agent', 'gemini'])
+  assert.equal(r.out, '')
+  assert.deepEqual([r.sent[0].event, r.sent[0].notification_type], ['Notification', 'permission_prompt'])
+  decision = null
+})
+
+test('Antigravity: event from --event, its own field names, always a JSON reply', async () => {
+  const agy = ['--agent', 'antigravity', '--event', 'PostToolUse']
+  const ev = { conversationId: 'cv', workspacePaths: ['D:/w'], toolCall: { name: 'run_command', args: { CommandLine: 'x', command: 'git status' } } }
+  const r = await relay(ev, agy)
+  assert.equal(r.out, '{}')
+  const b = r.sent[0]
+  assert.deepEqual([b.agent, b.event, b.session_id, b.cwd, b.tool_name, b.hint], ['antigravity', 'PostToolUse', 'cv', 'D:/w', 'run_command', 'git status'])
+  fs.renameSync(relayJson, relayJson + '.off')
+  assert.equal((await relay(ev, agy)).out, '{}', 'replies even when the island is not running')
+  fs.renameSync(relayJson + '.off', relayJson)
+})
+
+test('Cursor uses conversation_id and the first workspace root', async () => {
+  const cursor = ['--agent', 'cursor']
+  const b = await send({ hook_event_name: 'afterShellExecution', conversation_id: 'cv', workspace_roots: ['D:/w'], command: 'ls  -la', output: 'SECRET' }, cursor)
+  assert.deepEqual([b.event, b.session_id, b.cwd, b.tool_name, b.hint], ['PostToolUse', 'cv', 'D:/w', 'Shell', 'ls -la'])
+  assert.ok(!JSON.stringify(b).includes('SECRET'))
+  const edit = await send({ hook_event_name: 'afterFileEdit', conversation_id: 'cv', file_path: 'D:/w/src/a.js', edits: [{ new_string: 'SECRET' }] }, cursor)
+  assert.deepEqual([edit.tool_name, edit.hint], ['Edit', 'a.js'])
+  assert.ok(!JSON.stringify(edit).includes('SECRET'))
+})
+
+test('Copilot CLI events without a name or session id', async () => {
+  const b = await send({ cwd: 'D:/c', toolName: 'bash', toolArgs: '{"command":"make"}' }, ['--agent', 'copilot', '--event', 'preToolUse'])
+  assert.deepEqual([b.event, b.session_id, b.tool_name, b.hint], ['PreToolUse', 'D:/c', 'bash', 'make'])
+})
+
+test('unknown events of other agents send nothing', async () => {
+  const r = await relay({ hook_event_name: 'BeforeModel', session_id: 'g' }, ['--agent', 'gemini'])
+  assert.deepEqual([r.code, r.out, r.sent.length], [0, '', 0])
 })
 
 test('bad input sends nothing', async () => {

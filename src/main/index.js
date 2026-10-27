@@ -3,9 +3,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { app, globalShortcut, ipcMain, shell } from 'electron'
-import { bundledRelayPath, dataDir, installRelayFile, legacyDataDir } from '../shared/hooks-installer.mjs'
+import { AGENT_IDS, bundledRelayPath, dataDir, installRelayFile, legacyDataDir } from '../shared/hooks-installer.mjs'
 import { createClaudeHub } from './claude'
-import { claudeHooksStatus, installClaudeHooks, offerClaudeHooks, removeClaudeHooks } from './claude-hooks'
+import { agentHooksStatus, installAgentHooks, offerAgentHooks, removeAgentHooks } from './claude-hooks'
 import { startCalendar } from './calendar'
 import { addCalendarFromClipboard } from './calendar-url'
 import { getSettings, updateSettings } from './config'
@@ -67,7 +67,7 @@ function useDataDir() {
 // Hides the whole island until pressed again (also in the tray menu).
 const HIDE_SHORTCUT = 'Control+Alt+I'
 const GREET_DELAY_MS = 1200
-// The one-time offer to connect Claude Code comes after the greeting has had its moment.
+// The one-time offers to connect coding agents come after the greeting has had its moment.
 const OFFER_DELAY_MS = 4000
 const GOODBYE_MS = 1800
 
@@ -259,7 +259,7 @@ function start() {
         // Builds without the owner's OAuth client IDs (a fork, a local build) offer only what works.
         builtIn: { google: googleCalendar.hasBuiltInClient(), microsoft: microsoftCalendar.hasBuiltInClient() }
       },
-      claudeHooks: claudeHooksStatus(),
+      agentHooks: agentHooksStatus(),
       version: app.getVersion(),
       update: updates?.get() ?? null
     }
@@ -307,7 +307,7 @@ function start() {
   // Hello once the page is up (a moment later, so the island is on screen and listening).
   win.webContents.once('did-finish-load', () => {
     setTimeout(() => send('island:attention', { kind: 'greet', text: greetingText() }), GREET_DELAY_MS)
-    setTimeout(() => offerClaudeHooks().then((yes) => yes && settingsChanged()), OFFER_DELAY_MS)
+    setTimeout(() => offerAgentHooks().then((yes) => yes && settingsChanged()), OFFER_DELAY_MS)
   })
   // Windows is shutting down, restarting or signing out: say goodbye while it closes apps.
   win.on('query-session-end', () => sayGoodbye())
@@ -420,11 +420,11 @@ function start() {
   ipcMain.on('settings:open-link', (e, name) => {
     if (settingsWin.isSender(e)) openLink(name)
   })
-  // Claude Code hooks: the main process shows the change in a dialog on the settings window first.
-  ipcMain.handle('settings:claude-hooks', async (e, action) => {
-    if (!settingsWin.isSender(e)) return null
-    if (action === 'install') await installClaudeHooks({ parent: settingsWin.get() })
-    else if (action === 'remove') await removeClaudeHooks({ parent: settingsWin.get() })
+  // Coding agent hooks: the main process shows the change in a dialog on the settings window first.
+  ipcMain.handle('settings:agent-hooks', async (e, agent, action) => {
+    if (!settingsWin.isSender(e) || !AGENT_IDS.includes(agent)) return null
+    if (action === 'install') await installAgentHooks(agent, { parent: settingsWin.get() })
+    else if (action === 'remove') await removeAgentHooks(agent, { parent: settingsWin.get() })
     settingsChanged()
     return settingsView()
   })

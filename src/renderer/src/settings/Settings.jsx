@@ -13,6 +13,7 @@ import {
   isSystemControl,
   sortByOrder
 } from '../../../shared/settings-model.mjs'
+import { AGENT_NAMES, APPROVAL_AGENTS } from '../../../shared/agents.mjs'
 import { Icon, SYSTEM_ICONS } from '../components/icons'
 import { Card, ReorderList, Row, Segmented, Slider, Toggle } from './controls'
 
@@ -22,7 +23,12 @@ const SECTIONS = [
   { id: 'pill', label: 'Pill', title: 'Pill', help: 'What the closed island shows when nothing else needs the space.' },
   { id: 'home', label: 'Home', title: 'Home', help: 'The widgets in the Home tab and their indicators in the pill.' },
   { id: 'system', label: 'System tab', title: 'System tab', help: 'Which meters and controls the System tab shows, and in what order.' },
-  { id: 'claude', label: 'Claude Code', title: 'Claude Code', help: 'Session status and permission prompts from Claude Code.' },
+  {
+    id: 'claude',
+    label: 'Coding agents',
+    title: 'Coding agents',
+    help: 'Live sessions from Claude Code, Codex, Gemini CLI, Antigravity, Cursor and Copilot CLI, and permission prompts you can answer in the island.'
+  },
   { id: 'island', label: 'Island', title: 'Island', help: 'How the island behaves on your desktop.' },
   { id: 'calendar', label: 'Calendar', title: 'Calendar', help: 'Google, Outlook, iCloud, Notion and iCal calendars in the island.' },
   { id: 'about', label: 'About', title: 'About', help: 'Version, updates and footprint.' }
@@ -210,7 +216,7 @@ function PillPreview({ left, right }) {
         </div>
       </div>
       <figcaption className="border-t border-white/[0.06] px-4 py-2 text-[11px] text-white/40">
-        Music, the calendar and Claude Code take these spots whenever they have something to show.
+        Music, the calendar and coding agents take these spots whenever they have something to show.
       </figcaption>
     </figure>
   )
@@ -230,7 +236,7 @@ function PillSection({ view, save }) {
             onChange={(v) => save({ pill: { leftFallback: v } })}
           />
         </Row>
-        <Row id="pill-right" label="Right side" help="Shown when there is no Claude Code session or notice.">
+        <Row id="pill-right" label="Right side" help="Shown when there is no coding agent session or notice.">
           <Segmented
             labelledBy="pill-right"
             value={rightFallback}
@@ -355,11 +361,11 @@ function TimeoutInput({ value, onCommit }) {
 function ClaudeSection({ view, save, setView }) {
   return (
     <>
-      <HooksCard status={view.claudeHooks} setView={setView} />
+      <AgentsCard status={view.agentHooks} setView={setView} />
       <Card title="Approvals">
         <Row
           label="Answer approvals in the island"
-          help="Allow or deny Claude Code permission prompts from the island. Off: they stay in the terminal."
+          help={`Allow or deny ${APPROVAL_AGENTS.map((a) => AGENT_NAMES[a]).join(' and ')} permission prompts from the island. Off: they stay in the terminal. Other agents show that they are waiting for you.`}
         >
           <Toggle
             checked={view.approvalsEnabled}
@@ -376,7 +382,7 @@ function ClaudeSection({ view, save, setView }) {
         </Row>
       </Card>
       <Card title="Look">
-        <Row label="Pixel buddy" help="A small creature that reacts to your sessions. Off shows a coloured dot instead.">
+        <Row label="Pixel buddy" help="A small creature that reacts to your agents' sessions. Off shows a coloured dot instead.">
           <Toggle checked={view.claude.buddy} onChange={(on) => save({ claude: { buddy: on } })} label="Pixel buddy" />
         </Row>
       </Card>
@@ -384,40 +390,50 @@ function ClaudeSection({ view, save, setView }) {
   )
 }
 
-// Connecting Claude Code. The main process shows the exact change in a dialog before writing anything.
-function HooksCard({ status, setView }) {
-  const [busy, setBusy] = useState(false)
-  async function run(action) {
-    setBusy(true)
-    const v = await api.claudeHooks(action)
+// Connecting coding agents. The main process shows the exact change in a dialog before writing anything.
+// Agents not found on this PC are listed last, so people can see what else works.
+function AgentsCard({ status, setView }) {
+  const [busy, setBusy] = useState(null)
+  async function run(agent, action) {
+    setBusy(agent)
+    const v = await api.agentHooks(agent, action)
     if (v) setView(v)
-    setBusy(false)
+    setBusy(null)
   }
-  const help = status.installed
-    ? status.upToDate
-      ? 'Connected. Claude Code sends its sessions, permission prompts and questions to the island.'
-      : 'Connected by an older version, which misses some events. Update to get them all.'
-    : status.found
-      ? 'Not connected. Install the hooks to answer Claude Code prompts in the island and see your sessions live.'
-      : 'Claude Code was not found on this PC (no %USERPROFILE%\\.claude folder). Install the hooks once you have it.'
-  const button = (action, label) => (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={() => run(action)}
-      className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12] disabled:opacity-50`}
-    >
-      {label}
-    </button>
-  )
+  const ids = Object.keys(AGENT_NAMES).sort((a, b) => Number(!!status[b]?.found) - Number(!!status[a]?.found))
   return (
-    <Card title="Connection">
-      <Row label="Claude Code hooks" help={help}>
-        <span className="flex flex-wrap justify-end gap-2">
-          {status.installed && !status.upToDate && button('install', 'Update...')}
-          {status.installed ? button('remove', 'Remove...') : button('install', 'Install...')}
-        </span>
-      </Row>
+    <Card title="Connection" help="TheIsland adds a small hook to each agent's own settings, with a backup first. Restart sessions that are already open.">
+      {ids.map((id) => {
+        const st = status[id] || {}
+        const name = AGENT_NAMES[id]
+        const help = st.installed
+          ? st.upToDate
+            ? APPROVAL_AGENTS.includes(id)
+              ? 'Connected. Sessions, permission prompts and questions come to the island.'
+              : 'Connected. Sessions and what they are doing show in the island.'
+            : 'Connected by an older version, which misses some events. Update to get them all.'
+          : st.found
+            ? 'Not connected.'
+            : `Not found on this PC. Install the hooks once you use ${name}.`
+        const button = (action, label) => (
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={() => run(id, action)}
+            className={`${btn} bg-white/[0.07] text-white/80 hover:bg-white/[0.12] disabled:opacity-50`}
+          >
+            {label}
+          </button>
+        )
+        return (
+          <Row key={id} label={name} help={help}>
+            <span className="flex flex-wrap justify-end gap-2">
+              {st.installed && !st.upToDate && button('install', 'Update...')}
+              {st.installed ? button('remove', 'Remove...') : button('install', 'Install...')}
+            </span>
+          </Row>
+        )
+      })}
     </Card>
   )
 }

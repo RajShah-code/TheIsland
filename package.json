@@ -23,6 +23,7 @@
     "hooks:uninstall": "node scripts/hooks.mjs uninstall",
     "hooks:status": "node scripts/hooks.mjs status",
     "dist": "npm run build && electron-builder --win",
+    "agents:demo": "node scripts/demo-agents.mjs",
     "test": "node scripts/build-helper.mjs && node scripts/test-relay.mjs",
     "dist:store": "npm run build && electron-builder --win appx"
   },

@@ -40,7 +40,8 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
     feeds both sources into one handler (`src/renderer/src/pointer.js`, also used by the buddy's eyes).
   - `relay-server.js` 127.0.0.1 HTTP, random port, token in `%USERPROFILE%\.theisland\relay.json`, rejects
     requests with an Origin header. Only `POST /event`. Approvals are answered over IPC, never HTTP.
-  - `claude.js` sessions and pending approvals from hook events (memory only).
+  - `claude.js` the agent hub: sessions and pending approvals from hook events (memory only), for every agent.
+    Sessions are keyed `agent:session_id` (Claude Code keeps the bare id) and carry `agent`.
   - `helper.js` runs `resources/island-helper.exe` (music events + fullscreen on/off) and reads its JSON lines.
   - `calendar.js` merges the events of every enabled calendar account, each fetched on its own
     (`Promise.allSettled`): a failing account keeps its last events and gets its own error (`errors[id]`).
@@ -66,20 +67,29 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
     and every 12 h (or on resume after that) it asks GitHub's latest-release API and reports a newer version.
     Downloads nothing; the tray ("Update available...") and Settings > About link to the site's Download page.
     `updates.check` turns it off. `ISLAND_UPDATE_URL` points it at a fake server for testing.
-  - `claude-hooks.js` the install/remove dialogs for the Claude Code hooks (what gets added, then a backup and
-    the write), shared by the tray, Settings > Claude Code and the one-time offer a few seconds after a start
-    where `%USERPROFILE%\.claude` exists and the hooks aren't installed (`claudeHooksOffered` in config.json;
-    asked once, whatever the answer). No installer step: the Store package can't run one.
-  - `tray.js` Settings..., hide switch, approvals switch, hook install/remove, calendar URL, quit.
-- `src/shared/hooks-installer.mjs` safe installer used by both the tray and `scripts/hooks.mjs`.
+  - `claude-hooks.js` the install/remove dialogs for every agent's hooks (what gets added, then a backup and
+    the write), shared by the tray (Claude Code only), Settings > Coding agents and the one-time offer a few
+    seconds after a start, once per agent found but not connected (`agentHooksOffered` in config.json;
+    Claude Code also honours the old `claudeHooksOffered`). No installer step: the Store package can't run one.
+  - `tray.js` Settings..., hide switch, approvals switch, Claude Code hook install/remove, add an iCal calendar,
+    Send feedback..., quit.
+  - Feedback: `SETTINGS_LINKS.feedbackBug/feedbackIdea` open the site's `/feedback` form with `kind`, `v`, `os`
+    and `store=1` filled in; `openLink('logs')` opens the data folder for the log.
+- `src/shared/hooks-installer.mjs` safe installer used by both the app and `scripts/hooks.mjs`. `AGENTS` holds
+  each agent's file, how to detect it, its layout (`grouped` Claude/Codex/Gemini, `flat` Cursor/Copilot,
+  `named` Antigravity under a `theisland` key), its events and its handler.
+- `src/shared/agents.mjs` agent ids and names, `APPROVAL_AGENTS` (claude, codex), `agentsLabel()` for the tab.
 - `src/shared/settings-model.mjs` the settings model: defaults, `normalizeSettings` (clamps, drops unknown
   keys), `applySettingsPatch`, `sortByOrder`, `WIDGET_IDS`, `SYSTEM_ITEMS`. Shape: `approvalsEnabled`,
   `approvalTimeoutSec` (30..285, the hook dies at 300 s), `pill { leftFallback, rightFallback }`,
   `widgets { order, hidden }`, `system { order, hidden, controlStyle }`, `claude { buddy }`, `island { ghostOpacity }`, `updates { check }`.
   Start with Windows is a `TheIsland.lnk` in the user's Startup folder (not stored); the Run registry entry
   Electron's login item writes was never launched by Explorer on this machine.
-- `hook/TheIslandRelay.cs` the relay Claude Code runs, built to `resources/theisland-relay.exe` (C# 5, so
-  hooks need no Node.js). Its own small JSON reader/writer and a raw loopback socket, because
+- `hook/TheIslandRelay.cs` the relay every agent runs, built to `resources/theisland-relay.exe` (C# 5, so
+  hooks need no Node.js). `--agent <id>` (claude when missing) and `--event <name>` (Antigravity and Copilot
+  don't name the event); `Canonical()` turns another agent's event and field names into Claude Code's shape
+  before the usual trimming. Only claude and codex wait on PermissionRequest (same reply format); Antigravity
+  always gets `{}` printed, even with the island closed, since its hooks run in line. Its own small JSON reader/writer and a raw loopback socket, because
   `JavaScriptSerializer` and `HttpWebRequest` each added hundreds of ms per run. Copied to
   `%USERPROFILE%\.theisland` at app start so the hook path doesn't depend on the install folder (a running copy
   is renamed aside first). Exits 0 silently on any problem. It replaced `theisland-relay.cjs`; the installer
@@ -100,7 +110,14 @@ Read `docs/PLAN.md` for the full decisions. This file is the short version plus 
 - The notch shape is sized in px from React and animated with CSS transitions in `styles.css` (auto sizes
   can't animate). Transitions only run while the shape changes, so it costs nothing at rest.
 
-## Claude Code hooks
+## Coding agent hooks
+
+Claude Code first; Codex (`~/.codex/hooks.json`), Gemini CLI (`~/.gemini/settings.json`), Antigravity
+(`~/.gemini/config/hooks.json`), Cursor (`~/.cursor/hooks.json`, after-hooks only) and Copilot CLI (own file
+`~/.copilot/hooks/theisland.json`) use the same relay; check `AGENTS` in `hooks-installer.mjs` for the events.
+Codex is answered in the island like Claude Code; the others show status (a permission request shows as
+"Needs you"). The formats of the other agents come from their docs as of 2026-10; verify against a real
+install when one changes.
 
 Sessions end on SessionEnd, when a finished session's Claude desktop app has no visible window left (closed to the
 tray; the helper's "hosts" command), when the Claude Code process (the relay's parent pid, checked every 10 s while
@@ -124,7 +141,7 @@ Test without Claude Code: pipe event JSON into the relay while the app runs, for
 
 - `npm start` build and run. `npm run dev` hot reload.
 - `npm run build:helper` rebuild the media helper and the hook relay.
-- `npm test` tests the relay exe against a fake island server (`scripts/test-relay.mjs`).
+- `npm test` tests the relay exe against a fake island server (`scripts/test-relay.mjs`), every agent included.
 - `npm run dist` builds the installer (`electron-builder.yml`) into `dist/`. Releases: bump `version` in
   package.json, commit, push a `v<version>` tag; `.github/workflows/release.yml` builds a draft GitHub Release.
 - `npm run dist:store` builds the Microsoft Store package (`dist/TheIsland-Store-<version>.appx`, unsigned;
@@ -133,7 +150,10 @@ Test without Claude Code: pipe event JSON into the relay while the app runs, for
   In the Store build `process.windowsStore` is true: index.js skips its Startup-folder shortcut and app ID,
   and Settings shows "Open startup settings" (Windows Settings > Apps > Startup) instead of the switch.
   `toolsets.winCodeSign: 1.1.0` is needed: the default 2018 makepri.exe fails on Windows 11.
-- `npm run hooks:diff | hooks:install | hooks:uninstall | hooks:status`, add `-- --settings <file>` to test on a copy.
+- `npm run hooks:diff | hooks:install | hooks:uninstall | hooks:status`, add `-- --agent <id>` for another agent
+  and `-- --settings <file>` to test on a copy. `hooks:status` alone lists every agent.
+- To run a second island next to the installed one (own data folder, lock and relay port), start it with
+  `USERPROFILE` set to a temp folder; pipe relay events with the same `USERPROFILE`.
 
 ## Measuring
 

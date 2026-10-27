@@ -1,18 +1,19 @@
-// CLI for the Claude Code hook installer.
+// CLI for the coding agent hook installer (Claude Code unless --agent says otherwise).
 //
 //   npm run hooks:diff        show what install would change (writes nothing)
 //   npm run hooks:install     show the diff, then install (asks y/N unless --yes)
 //   npm run hooks:uninstall   remove only TheIsland's hook entries
 //   npm run hooks:status
 //
+// --agent <claude|codex|gemini|antigravity|cursor|copilot> picks the agent; status without it lists them all.
 // --settings <path> targets another file (used for testing).
 import { createInterface } from 'node:readline/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  AGENTS,
   applyPlan,
   bundledRelayPath,
-  defaultSettingsPath,
   installRelayFile,
   isInstalled,
   isUpToDate,
@@ -25,7 +26,13 @@ const args = process.argv.slice(2)
 const cmd = args[0]
 const yes = args.includes('--yes')
 const si = args.indexOf('--settings')
-const settingsPath = si >= 0 ? args[si + 1] : defaultSettingsPath()
+const ai = args.indexOf('--agent')
+const agent = ai >= 0 ? args[ai + 1] : 'claude'
+const settingsPath = si >= 0 ? args[si + 1] : AGENTS[agent]?.file()
+if (!AGENTS[agent]) {
+  console.error('Unknown agent: ' + agent + '. One of: ' + Object.keys(AGENTS).join(', '))
+  process.exit(1)
+}
 
 function showDiff(p) {
   if (!p.changed) {
@@ -59,7 +66,7 @@ async function confirm(q) {
 
 try {
   if (cmd === 'diff' || cmd === 'install') {
-    const p = planInstall({ settingsPath })
+    const p = planInstall({ agent, settingsPath })
     showDiff(p)
     if (cmd === 'install' && p.changed) {
       if (!(await confirm('Write these changes?'))) {
@@ -72,7 +79,7 @@ try {
       console.log('Installed. Backup: ' + (r.backup || '(file was new)'))
     }
   } else if (cmd === 'uninstall') {
-    const p = planUninstall({ settingsPath })
+    const p = planUninstall({ agent, settingsPath })
     showDiff(p)
     if (p.changed) {
       if (!(await confirm('Remove TheIsland hooks?'))) process.exit(0)
@@ -80,10 +87,14 @@ try {
       console.log('Removed. Backup: ' + r.backup)
     }
   } else if (cmd === 'status') {
-    const state = !isInstalled(settingsPath) ? 'Not installed' : isUpToDate(settingsPath) ? 'Installed' : 'Installed but outdated (run hooks:install)'
-    console.log(state + ' in ' + settingsPath)
+    const status = (id, file) =>
+      !isInstalled(file, id) ? 'Not installed' : isUpToDate(file, id) ? 'Installed' : 'Installed but outdated (run hooks:install)'
+    if (ai >= 0 || si >= 0) console.log(status(agent, settingsPath) + ' in ' + settingsPath)
+    else
+      for (const [id, t] of Object.entries(AGENTS))
+        console.log(`${t.name.padEnd(12)} ${t.found() ? status(id, t.file()) : 'Not found on this PC'}  (${t.file()})`)
   } else {
-    console.log('Usage: node scripts/hooks.mjs <diff|install|uninstall|status> [--yes] [--settings <path>]')
+    console.log('Usage: node scripts/hooks.mjs <diff|install|uninstall|status> [--agent <id>] [--yes] [--settings <path>]')
   }
 } catch (e) {
   console.error('Refused: ' + e.message)

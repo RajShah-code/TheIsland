@@ -79,7 +79,7 @@ export function createTray({
         },
         { type: 'separator' },
         {
-          label: 'Answer Claude Code approvals in the island',
+          label: 'Answer agent approvals in the island',
           type: 'checkbox',
           checked: cfg.approvalsEnabled,
           click: (item) => {

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { agentsLabel } from '../../shared/agents.mjs'
 import { ApprovalCard, ClaudeCompact, ClaudePanel, Dot, Mascot, mostRelevant } from './components/Claude'
 import { SystemPanel } from './components/System'
 import { emitPointer } from './pointer'
@@ -290,7 +291,7 @@ function Open({ state, tab, setTab, hasClaude, approvals, widgets, settings, act
         {hasClaude && (
           <Tab active={tab === 'claude'} onClick={() => setTab('claude')}>
             {top && <Dot state={top.state} />}
-            Claude Code
+            {agentsLabel(claude.sessions)}
           </Tab>
         )}
         <Tab active={tab === 'system'} onClick={() => setTab('system')}>

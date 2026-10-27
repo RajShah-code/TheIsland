@@ -1,6 +1,7 @@
-// Safe installer for TheIsland's Claude Code hooks.
+// Safe installer for TheIsland's coding agent hooks: Claude Code, Codex, Gemini CLI, Antigravity, Cursor
+// and Copilot CLI (AGENTS below), each in its own file.
 //
-// - Reads ~/.claude/settings.json and refuses to do anything if it can't be parsed or has an
+// - Reads the agent's settings or hooks file and refuses to do anything if it can't be parsed or has an
 //   unexpected shape. It never "fixes" a file it doesn't understand.
 // - Only adds/removes hook handlers that run theisland-relay.exe (or the theisland-relay.cjs of older
 //   versions). Everything else in the file (other settings, other hooks) is left exactly as it was.
@@ -36,6 +37,109 @@ export const EVENTS = [
 
 export function defaultSettingsPath() {
   return path.join(os.homedir(), '.claude', 'settings.json')
+}
+
+const inHome = (...parts) => path.join(os.homedir(), ...parts)
+const exists = (...parts) => fs.existsSync(inHome(...parts))
+
+// The relay as a command line, for agents that take one string. Quoted only when the path has a space:
+// a bare path runs the same in cmd, PowerShell and bash, a quoted one not in PowerShell.
+function commandLine(relayPath, args) {
+  const exe = /\s/.test(relayPath) ? `"${relayPath}"` : relayPath
+  return [exe, ...args].join(' ')
+}
+
+// How each agent's file holds hooks:
+//   grouped  hooks: { Event: [{ matcher?, hooks: [handler] }] }   Claude Code, Codex, Gemini CLI
+//   flat     hooks: { event: [handler] }, version: 1              Cursor, Copilot CLI
+//   named    { theisland: { Event: [handler or { matcher, hooks }] } }   Antigravity
+// `found` is a folder the agent makes on first use. Only Claude Code and Codex get approvals (sync
+// PermissionRequest); everything else is a quick status event the agent doesn't need to wait on.
+export const AGENTS = {
+  claude: {
+    name: 'Claude Code',
+    file: () => defaultSettingsPath(),
+    found: () => exists('.claude'),
+    layout: 'grouped',
+    events: EVENTS,
+    // args makes Claude Code spawn the exe directly (exec form). Without it the command goes through Git
+    // Bash or PowerShell, which is slower and mangles the backslashes in the path.
+    handler: (relay, ev) => ({ type: 'command', command: relay, args: ['--hook'], timeout: ev.timeout, ...(ev.async ? { async: true } : {}) })
+  },
+  codex: {
+    name: 'Codex',
+    file: () => inHome('.codex', 'hooks.json'),
+    found: () => exists('.codex'),
+    layout: 'grouped',
+    events: [
+      { name: 'SessionStart', timeout: 5 },
+      { name: 'UserPromptSubmit', timeout: 5 },
+      { name: 'PreToolUse', timeout: 5 },
+      { name: 'PostToolUse', timeout: 5 },
+      { name: 'Stop', timeout: 5 },
+      { name: 'PermissionRequest', timeout: 300 }
+    ],
+    handler: (relay, ev) => ({ type: 'command', command: commandLine(relay, ['--hook', '--agent', 'codex']), timeout: ev.timeout }),
+    note: 'Codex runs hooks from version 0.114 on. Older versions need [features] hooks = true in ~/.codex/config.toml.'
+  },
+  gemini: {
+    name: 'Gemini CLI',
+    file: () => inHome('.gemini', 'settings.json'),
+    // ~/.gemini is shared with Antigravity, so look for Gemini CLI's own files.
+    found: () => ['settings.json', 'oauth_creds.json', 'google_accounts.json'].some((f) => exists('.gemini', f)),
+    layout: 'grouped',
+    // Gemini CLI's timeouts are in milliseconds.
+    events: ['SessionStart', 'SessionEnd', 'BeforeAgent', 'AfterAgent', 'BeforeTool', 'AfterTool', 'Notification'].map((name) => ({ name, timeout: 5000 })),
+    handler: (relay, ev) => ({ type: 'command', command: commandLine(relay, ['--hook', '--agent', 'gemini']), timeout: ev.timeout })
+  },
+  antigravity: {
+    name: 'Antigravity',
+    file: () => inHome('.gemini', 'config', 'hooks.json'),
+    found: () => ['antigravity', 'antigravity-ide', 'antigravity-cli', 'config'].some((d) => exists('.gemini', d)),
+    layout: 'named',
+    // No PreToolUse: Antigravity runs hooks in line and may block a tool when one fails.
+    // Its events don't carry their name, so each entry passes it.
+    events: [
+      { name: 'PreInvocation', timeout: 10 },
+      { name: 'PostToolUse', timeout: 10, matcher: '*' },
+      { name: 'Stop', timeout: 10 }
+    ],
+    handler: (relay, ev) => ({
+      type: 'command',
+      command: commandLine(relay, ['--hook', '--agent', 'antigravity', '--event', ev.name]),
+      timeout: ev.timeout
+    })
+  },
+  cursor: {
+    name: 'Cursor',
+    file: () => inHome('.cursor', 'hooks.json'),
+    found: () => exists('.cursor'),
+    layout: 'flat',
+    // Only hooks that can't gate anything: Cursor treats a before* hook's empty reply in odd ways.
+    events: ['beforeSubmitPrompt', 'afterShellExecution', 'afterMCPExecution', 'afterFileEdit', 'stop'].map((name) => ({ name })),
+    handler: (relay) => ({ command: commandLine(relay, ['--hook', '--agent', 'cursor']) })
+  },
+  copilot: {
+    name: 'Copilot CLI',
+    // A file of our own: Copilot CLI reads every *.json in ~/.copilot/hooks.
+    file: () => inHome('.copilot', 'hooks', 'theisland.json'),
+    found: () => exists('.copilot'),
+    layout: 'flat',
+    events: ['sessionStart', 'sessionEnd', 'userPromptSubmitted', 'preToolUse', 'postToolUse', 'agentStop'].map((name) => ({ name })),
+    // Copilot's events don't carry their name either.
+    handler: (relay, ev) => {
+      const args = ['--hook', '--agent', 'copilot', '--event', ev.name]
+      return { type: 'command', powershell: `& '${relay}' ${args.join(' ')}`, bash: `'${relay.replace(/\\/g, '/')}' ${args.join(' ')}`, timeoutSec: 5 }
+    }
+  }
+}
+export const AGENT_IDS = Object.keys(AGENTS)
+const NAMED_KEY = 'theisland'
+
+function target(agent) {
+  const t = AGENTS[agent || 'claude']
+  if (!t) throw new RefuseError(`Unknown agent "${agent}".`)
+  return t
 }
 
 // %USERPROFILE%\.theisland holds everything: settings, relay.json, the hook script, the log and
@@ -90,19 +194,31 @@ export function installRelayFile(sourcePath) {
   return dest
 }
 
+// A handler that runs the relay: as `command` (+ args), or inside a command line (other agents, and
+// Copilot's powershell/bash fields).
 function isOurHandler(h) {
   if (!h || typeof h !== 'object') return false
-  const parts = [h.command, ...(Array.isArray(h.args) ? h.args : [])]
+  const parts = [h.command, h.powershell, h.bash, ...(Array.isArray(h.args) ? h.args : [])]
   return parts.some(
-    (p) => typeof p === 'string' && [RELAY_FILE, ...OLD_RELAY_FILES].some((f) => p.replace(/\\/g, '/').endsWith('/' + f))
+    (p) =>
+      typeof p === 'string' &&
+      [RELAY_FILE, ...OLD_RELAY_FILES].some((f) => {
+        const s = p.replace(/\\/g, '/').toLowerCase()
+        return s.endsWith('/' + f) || s.includes('/' + f + ' ') || s.includes('/' + f + '"') || s.includes('/' + f + "'")
+      })
   )
 }
 
-const samePath = (a, b) => path.resolve(String(a)).toLowerCase() === path.resolve(String(b)).toLowerCase()
+// Ours and running the relay in the data folder (not an old copy).
+function isCurrentHandler(h) {
+  if (!isOurHandler(h)) return false
+  const relay = relayInstallPath().replace(/\\/g, '/').toLowerCase()
+  return [h.command, h.powershell].some((p) => typeof p === 'string' && p.replace(/\\/g, '/').toLowerCase().includes(relay))
+}
 
 class RefuseError extends Error {}
 
-function readSettings(file) {
+function readSettings(file, layout = 'grouped') {
   let text = null
   try {
     text = fs.readFileSync(file, 'utf8')
@@ -119,7 +235,12 @@ function readSettings(file) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     throw new RefuseError(`${file} is not a JSON object. Not touching it.`)
   }
-  if (data.hooks !== undefined) {
+  if (layout === 'named') {
+    const ours = data[NAMED_KEY]
+    if (ours !== undefined && (!ours || typeof ours !== 'object' || Array.isArray(ours))) {
+      throw new RefuseError(`"${NAMED_KEY}" in ${file} has an unexpected shape. Not touching it.`)
+    }
+  } else if (data.hooks !== undefined) {
     if (!data.hooks || typeof data.hooks !== 'object' || Array.isArray(data.hooks)) {
       throw new RefuseError(`"hooks" in ${file} has an unexpected shape. Not touching it.`)
     }
@@ -136,7 +257,23 @@ function readSettings(file) {
 }
 
 // Removes our handlers; drops groups/events that only contained ours.
-function stripOurs(data) {
+function stripOurs(data, layout = 'grouped') {
+  if (layout === 'named') {
+    const had = data[NAMED_KEY] !== undefined
+    delete data[NAMED_KEY]
+    return had ? 1 : 0
+  }
+  if (layout === 'flat') {
+    if (!data.hooks) return 0
+    let removed = 0
+    for (const ev of Object.keys(data.hooks)) {
+      const kept = data.hooks[ev].filter((h) => !isOurHandler(h))
+      removed += data.hooks[ev].length - kept.length
+      if (kept.length > 0) data.hooks[ev] = kept
+      else delete data.hooks[ev]
+    }
+    return removed
+  }
   if (!data.hooks) return 0
   let removed = 0
   for (const ev of Object.keys(data.hooks)) {
@@ -163,59 +300,78 @@ function serialize(data, originalText) {
   return JSON.stringify(data, null, 2).replace(/\n/g, eol) + eol
 }
 
-function plan(file, mutate) {
-  const { text, data } = readSettings(file)
+function plan(file, mutate, layout) {
+  const { text, data } = readSettings(file, layout)
   const next = structuredClone(data)
   mutate(next)
   const after = serialize(next, text)
   // Compare against a normalised "before" so the diff shows only real changes, not formatting.
   const before = text.trim() === '' ? '' : serialize(data, text)
-  return { file, before: text, after, changed: before !== after, diff: lineDiff(before, after) }
+  return { file, layout, before: text, after, changed: before !== after, diff: lineDiff(before, after) }
 }
 
-export function planInstall({ settingsPath = defaultSettingsPath(), relayPath = relayInstallPath() } = {}) {
-  return plan(settingsPath, (data) => {
-    stripOurs(data)
-    data.hooks = data.hooks || {}
-    for (const ev of EVENTS) {
-      // args makes Claude Code spawn the exe directly (exec form). Without it the command goes through
-      // Git Bash or PowerShell, which is slower and mangles the backslashes in the path. The relay
-      // ignores the argument.
-      const handler = { type: 'command', command: relayPath, args: ['--hook'], timeout: ev.timeout }
-      if (ev.async) handler.async = true
-      data.hooks[ev.name] = [...(data.hooks[ev.name] || []), { hooks: [handler] }]
-    }
-  })
+// agent: a key of AGENTS (claude when missing). settingsPath: another file to work on (tests, the CLI).
+export function planInstall({ agent = 'claude', settingsPath, relayPath = relayInstallPath() } = {}) {
+  const t = target(agent)
+  return plan(
+    settingsPath || t.file(),
+    (data) => {
+      stripOurs(data, t.layout)
+      if (t.layout === 'named') {
+        data[NAMED_KEY] = Object.fromEntries(
+          t.events.map((ev) => {
+            const h = t.handler(relayPath, ev)
+            return [ev.name, ev.matcher ? [{ matcher: ev.matcher, hooks: [h] }] : [h]]
+          })
+        )
+        return
+      }
+      if (t.layout === 'flat' && data.version === undefined) data.version = 1
+      data.hooks = data.hooks || {}
+      for (const ev of t.events) {
+        const h = t.handler(relayPath, ev)
+        data.hooks[ev.name] = [...(data.hooks[ev.name] || []), t.layout === 'flat' ? h : { hooks: [h] }]
+      }
+    },
+    t.layout
+  )
 }
 
-export function planUninstall({ settingsPath = defaultSettingsPath() } = {}) {
-  return plan(settingsPath, (data) => {
-    stripOurs(data)
-  })
+export function planUninstall({ agent = 'claude', settingsPath } = {}) {
+  const t = target(agent)
+  return plan(settingsPath || t.file(), (data) => stripOurs(data, t.layout), t.layout)
 }
 
-export function isInstalled(settingsPath = defaultSettingsPath()) {
+// Our handlers per event name, whatever the layout.
+function ourHandlers(data, layout) {
+  const out = {}
+  const events = layout === 'named' ? data[NAMED_KEY] || {} : data.hooks || {}
+  for (const [ev, entries] of Object.entries(events)) {
+    if (!Array.isArray(entries)) continue
+    out[ev] = entries.flatMap((g) => (Array.isArray(g?.hooks) ? g.hooks : [g])).filter(isOurHandler)
+  }
+  return out
+}
+
+export function isInstalled(settingsPath, agent = 'claude') {
+  const t = target(agent)
   try {
-    const { data } = readSettings(settingsPath)
-    return Object.values(data.hooks || {}).some((groups) =>
-      groups.some((g) => Array.isArray(g.hooks) && g.hooks.some(isOurHandler))
-    )
+    const { data } = readSettings(settingsPath || t.file(), t.layout)
+    return Object.values(ourHandlers(data, t.layout)).some((list) => list.length > 0)
   } catch {
     return false
   }
 }
 
-// True when every event in EVENTS has our handler and it runs the relay exe in the data folder. An
-// install from an older version can miss some (SubagentStart and SubagentStop were added later), point
-// at the old %APPDATA% copy or run the old Node script; installing again fixes all three.
-export function isUpToDate(settingsPath = defaultSettingsPath()) {
-  const current = (h) => isOurHandler(h) && typeof h.command === 'string' && samePath(h.command, relayInstallPath())
+// True when every event the agent needs has our handler and it runs the relay exe in the data folder.
+// An install from an older version can miss some (SubagentStart and SubagentStop were added later),
+// point at the old %APPDATA% copy or run the old Node script; installing again fixes all three.
+export function isUpToDate(settingsPath, agent = 'claude') {
+  const t = target(agent)
   try {
-    const { data } = readSettings(settingsPath)
-    const hooks = data.hooks || {}
-    return EVENTS.every((ev) =>
-      (hooks[ev.name] || []).some((g) => Array.isArray(g.hooks) && g.hooks.some(current))
-    )
+    const { data } = readSettings(settingsPath || t.file(), t.layout)
+    const ours = ourHandlers(data, t.layout)
+    return t.events.every((ev) => (ours[ev.name] || []).some(isCurrentHandler))
   } catch {
     return false
   }
@@ -230,7 +386,7 @@ function stamp() {
 // Applies a plan from planInstall/planUninstall. Re-reads the file first and refuses if it
 // changed since the plan was made (so the user approves exactly what gets written).
 export function applyPlan(p) {
-  const { text } = readSettings(p.file)
+  const { text } = readSettings(p.file, p.layout)
   if (text !== p.before) throw new RefuseError(`${p.file} changed since the diff was shown. Run it again.`)
   if (!p.changed) return { written: false, backup: null }
   fs.mkdirSync(path.dirname(p.file), { recursive: true })

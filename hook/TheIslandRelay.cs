@@ -1,8 +1,10 @@
 // TheIsland hook relay.
 //
 // Claude Code runs this for each hook event (registered in ~/.claude/settings.json by the
-// installer). It reads the event JSON from stdin and forwards a trimmed copy to the TheIsland app
-// over 127.0.0.1, authenticated with the token in %USERPROFILE%\.theisland\relay.json.
+// installer), and so do the other coding agents TheIsland supports (Codex, Gemini CLI, Antigravity,
+// Cursor, Copilot CLI), each from its own hooks file. It reads the event JSON from stdin and forwards a
+// trimmed copy to the TheIsland app over 127.0.0.1, authenticated with the token in
+// %USERPROFILE%\.theisland\relay.json.
 //
 // Built by scripts/build-helper.mjs with the csc.exe that ships with Windows (C# 5, .NET Framework 4),
 // so the hooks need neither Node.js nor a .NET SDK. A GUI-subsystem exe, so no console window flashes.
@@ -14,7 +16,11 @@
 //   "no decision" (timeout, approvals off, user picked "Terminal"), it prints nothing and Claude
 //   Code shows its normal terminal prompt.
 // - It never writes anything to disk and never sends prompt text.
-// - Arguments are ignored. The installer passes one so Claude Code spawns it directly (exec form).
+// - Arguments: --hook (only so Claude Code spawns it directly, exec form), --agent <id> for the
+//   other agents (claude when missing) and --event <name> for agents whose payload doesn't name the
+//   event. Another agent's event is first turned into Claude Code's shape (Canonical), so the trimming
+//   below is the same for all of them. Only Claude Code and Codex wait for Allow/Deny; both read the
+//   same PermissionRequest reply.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,10 +38,25 @@ static class Relay
 
     static readonly long StartedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-    static int Main()
+    static string Agent = "claude";
+    static string EventArg = null;
+
+    static int Main(string[] args)
     {
         AppDomain.CurrentDomain.UnhandledException += (s, e) => Environment.Exit(0);
-        try { Run(); } catch { }
+        try
+        {
+            for (int i = 0; i + 1 < args.Length; i++)
+            {
+                if (args[i] == "--agent") Agent = args[i + 1].ToLowerInvariant();
+                else if (args[i] == "--event") EventArg = args[i + 1];
+            }
+            // Antigravity runs hooks in line and wants a JSON reply, even when the island isn't running.
+            // An empty object changes nothing.
+            if (Agent == "antigravity") Print("{}");
+            Run();
+        }
+        catch { }
         return 0;
     }
 
@@ -55,7 +76,104 @@ static class Relay
         // Strip a UTF-8 BOM (Windows PowerShell adds one when piping).
         var input = Json.Parse(new UTF8Encoding(false).GetString(raw).TrimStart('﻿')) as Dictionary<string, object>;
         if (input == null) return;
-        Send(input, Trim(input), (int)(long)conn["port"], (string)conn["token"]);
+        if (Agent != "claude") input = Canonical(input);
+        if (input == null) return;
+        var payload = Trim(input);
+        payload["agent"] = Agent;
+        Send(input, payload, (int)(long)conn["port"], (string)conn["token"]);
+    }
+
+    // Other agents' event names, lowercased, mapped to Claude Code's. Names that already match
+    // (PreToolUse, Stop...) are in here too so their case doesn't matter.
+    static readonly Dictionary<string, string> Events = new Dictionary<string, string>
+    {
+        // Codex (same names as Claude Code) and the shared ones.
+        { "sessionstart", "SessionStart" }, { "sessionend", "SessionEnd" }, { "userpromptsubmit", "UserPromptSubmit" },
+        { "pretooluse", "PreToolUse" }, { "posttooluse", "PostToolUse" }, { "notification", "Notification" },
+        { "permissionrequest", "PermissionRequest" }, { "stop", "Stop" },
+        { "subagentstart", "SubagentStart" }, { "subagentstop", "SubagentStop" },
+        // Gemini CLI.
+        { "beforetool", "PreToolUse" }, { "aftertool", "PostToolUse" }, { "beforeagent", "UserPromptSubmit" }, { "afteragent", "Stop" },
+        // Antigravity.
+        { "preinvocation", "UserPromptSubmit" },
+        // Cursor.
+        { "beforesubmitprompt", "UserPromptSubmit" }, { "aftershellexecution", "PostToolUse" },
+        { "aftermcpexecution", "PostToolUse" }, { "afterfileedit", "PostToolUse" },
+        // Copilot CLI.
+        { "userpromptsubmitted", "UserPromptSubmit" }, { "agentstop", "Stop" }
+    };
+
+    // Another agent's event in Claude Code's shape: hook_event_name, session_id, cwd, tool_name and
+    // tool_input under Claude Code's names. Null for events the island doesn't use.
+    static Dictionary<string, object> Canonical(Dictionary<string, object> e)
+    {
+        string raw = (Get(e, "hook_event_name") as string) ?? (Get(e, "hookEventName") as string) ?? EventArg;
+        string ev;
+        if (raw == null || !Events.TryGetValue(raw.ToLowerInvariant(), out ev)) return null;
+        string lower = raw.ToLowerInvariant();
+        var o = new Dictionary<string, object>(e);
+
+        object cwd = Get(e, "cwd");
+        // Cursor: workspace_roots; Antigravity: workspacePaths.
+        var roots = (Get(e, "workspace_roots") ?? Get(e, "workspacePaths")) as List<object>;
+        if (!Truthy(cwd) && roots != null && roots.Count > 0) cwd = roots[0];
+        Put(o, "cwd", cwd);
+        // Cursor names it conversation_id, Copilot sessionId; without one, the folder stands in.
+        object sid = Get(e, "session_id");
+        if (!Truthy(sid)) sid = Get(e, "sessionId");
+        if (!Truthy(sid)) sid = Get(e, "conversation_id");
+        if (!Truthy(sid)) sid = Get(e, "conversationId");
+        if (!Truthy(sid)) sid = cwd;
+        if (!(sid is string) || !Truthy(sid)) return null;
+        o["session_id"] = sid;
+
+        // Antigravity: toolCall { name, args }.
+        var call = Get(e, "toolCall") as Dictionary<string, object>;
+        object tool = Get(e, "tool_name");
+        if (!Truthy(tool)) tool = Get(e, "toolName");
+        if (!Truthy(tool)) tool = Get(call, "name");
+        object input = Get(e, "tool_input") ?? Get(call, "args");
+        if (input == null)
+        {
+            // Copilot sends its arguments as a JSON string.
+            var args = Get(e, "toolArgs");
+            input = args is string ? SafeParse((string)args) : args;
+        }
+        if (lower == "aftershellexecution")
+        {
+            tool = "Shell";
+            var cmd = new Dictionary<string, object>();
+            Put(cmd, "command", Get(e, "command"));
+            input = cmd;
+        }
+        else if (lower == "afterfileedit")
+        {
+            tool = "Edit";
+            var f = new Dictionary<string, object>();
+            Put(f, "file_path", Get(e, "file_path"));
+            input = f;
+        }
+        Put(o, "tool_name", tool);
+        Put(o, "tool_input", input);
+
+        // Only Claude Code and Codex get their approvals answered in the island. Anyone else asking for
+        // permission (or Gemini's ToolPermission notice) shows as waiting for the user in its own window.
+        if (ev == "PermissionRequest" && Agent != "codex")
+        {
+            ev = "Notification";
+            o["notification_type"] = "permission_prompt";
+        }
+        else if (ev == "Notification" && "ToolPermission".Equals(Get(e, "notification_type")))
+        {
+            o["notification_type"] = "permission_prompt";
+        }
+        o["hook_event_name"] = ev;
+        return o;
+    }
+
+    static object SafeParse(string s)
+    {
+        try { return Json.Parse(s); } catch { return null; }
     }
 
     static byte[] ReadStdin(int timeoutMs)
@@ -146,13 +264,15 @@ static class Relay
         var ti = toolInput as Dictionary<string, object>;
         if (ti == null) return "";
         object v = "";
-        foreach (var k in new[] { "command", "file_path", "notebook_path", "url", "pattern", "query", "description" })
+        // CommandLine and TargetFile are Antigravity's names.
+        foreach (var k in new[] { "command", "CommandLine", "file_path", "notebook_path", "TargetFile", "url", "pattern", "query", "description" })
         {
             if (Truthy(Get(ti, k))) { v = Get(ti, k); break; }
         }
         var s = v as string;
         if (s == null) return "";
-        if (Truthy(Get(ti, "file_path")) || Truthy(Get(ti, "notebook_path"))) s = BaseName(s);
+        bool command = Truthy(Get(ti, "command")) || Truthy(Get(ti, "CommandLine"));
+        if (!command && (Truthy(Get(ti, "file_path")) || Truthy(Get(ti, "notebook_path")) || Truthy(Get(ti, "TargetFile")))) s = BaseName(s);
         return (string)Clip(CollapseSpaces(s), 120);
     }
 
@@ -276,7 +396,7 @@ static class Relay
     {
         var utf8 = new UTF8Encoding(false);
         byte[] body = utf8.GetBytes(Json.Write(payload));
-        bool waitForDecision = "PermissionRequest".Equals(Get(payload, "event"));
+        bool waitForDecision = "PermissionRequest".Equals(Get(payload, "event")) && (Agent == "claude" || Agent == "codex");
         // Status events must be quick. Approvals wait for the user; the app enforces its own timeout,
         // and this guard stays under the hook timeout set by the installer (300 s).
         int timeout = waitForDecision ? 290000 : 1500;
@@ -374,7 +494,12 @@ static class Relay
         else return;
         var output = new Dictionary<string, object>();
         output["hookSpecificOutput"] = new Dictionary<string, object> { { "hookEventName", "PermissionRequest" }, { "decision", decision } };
-        byte[] bytes = new UTF8Encoding(false).GetBytes(Json.Write(output));
+        Print(Json.Write(output));
+    }
+
+    static void Print(string text)
+    {
+        byte[] bytes = new UTF8Encoding(false).GetBytes(text);
         using (var stdout = Console.OpenStandardOutput())
         {
             stdout.Write(bytes, 0, bytes.Length);

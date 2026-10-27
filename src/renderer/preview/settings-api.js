@@ -1,5 +1,6 @@
 // A fake window.settingsApi for preview/settings.html, kept in memory. ?hooks=on|old|off|missing sets
-// the Claude Code hooks state (default off); installing or removing them just flips it.
+// Claude Code's hooks state (default off; the other agents get fixed sample states); installing or removing them just flips it. ?cal adds sample
+// calendar accounts; ?nogoogle / ?noms act like a build without the built-in OAuth clients.
 import { DEFAULT_SETTINGS, applySettingsPatch } from '../../shared/settings-model.mjs'
 
 const q = new URLSearchParams(location.search)
@@ -23,7 +24,14 @@ let view = {
       : [],
     builtIn: { google: !q.has('nogoogle'), microsoft: !q.has('noms') }
   },
-  claudeHooks: HOOKS[q.get('hooks')] || HOOKS.off,
+  agentHooks: {
+    claude: HOOKS[q.get('hooks')] || HOOKS.off,
+    codex: HOOKS.on,
+    gemini: HOOKS.missing,
+    antigravity: HOOKS.off,
+    cursor: HOOKS.missing,
+    copilot: HOOKS.old
+  },
   version: '0.1.0',
   update: q.has('update') ? { version: '0.2.0' } : null
 }
@@ -39,7 +47,10 @@ window.settingsApi = {
     (view = { ...view, calendar: { ...view.calendar, accounts: view.calendar.accounts.filter((a) => a.id !== id) } }),
   openCalendarHelp: (name) => window.opened.push(name),
   openLink: (name) => window.opened.push(name),
-  claudeHooks: async (action) =>
-    (view = { ...view, claudeHooks: action === 'install' ? HOOKS.on : { ...HOOKS.off, found: view.claudeHooks.found } }),
+  agentHooks: async (agent, action) =>
+    (view = {
+      ...view,
+      agentHooks: { ...view.agentHooks, [agent]: action === 'install' ? HOOKS.on : { ...HOOKS.off, found: view.agentHooks[agent].found } }
+    }),
   onChange: () => () => {}
 }

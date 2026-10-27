@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('settingsApi', {
   calendarRemove: (id) => ipcRenderer.invoke('settings:calendar-remove', id),
   openCalendarHelp: (name) => ipcRenderer.send('settings:open-calendar-help', name),
   openLink: (name) => ipcRenderer.send('settings:open-link', name),
-  claudeHooks: (action) => ipcRenderer.invoke('settings:claude-hooks', action),
+  agentHooks: (agent, action) => ipcRenderer.invoke('settings:agent-hooks', agent, action),
   onChange: (cb) => {
     const fn = (_e, data) => cb(data)
     ipcRenderer.on('settings:changed', fn)
